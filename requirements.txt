@@ -1,0 +1,37 @@
+# ===== LLM / LangChain =====
+langchain>=1.0,<2.0
+langchain-openai>=1.0
+langchain-core>=1.0
+langgraph>=1.0
+
+# ===== 图数据库 / 缓存 / 关系库 =====
+neo4j>=5.0
+redis>=5.0
+mysql-connector-python>=8.4
+
+# ===== 向量检索 =====
+faiss-cpu>=1.8
+sentence-transformers>=3.0
+
+# ===== 数据采集与处理 =====
+requests>=2.31
+beautifulsoup4>=4.12
+lxml>=5.0
+pandas>=2.0
+openpyxl>=3.1
+tqdm>=4.66
+
+# ===== Web API =====
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+pydantic-settings>=2.2
+python-dotenv>=1.0
+
+# ===== 评估（可选：未安装时 RAGAS 自动降级为 LLM 裁判）=====
+ragas>=0.2
+datasets>=2.19
+
+# ===== 可观测（可选：设置对应环境变量才启用，否则 no-op）=====
+# langsmith>=0.1
+# langfuse>=2.30
