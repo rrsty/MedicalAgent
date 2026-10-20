@@ -109,19 +109,20 @@ try:
     env = dotenv_values(env_file)
     import requests as requests_lib
 
+    base_url = env.get("MODEL_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1").rstrip("/")
     api_key = env.get("MODEL_API_KEY", "")
     if api_key and api_key != "your_api_key_here":
         resp = requests_lib.get(
-            "https://dashscope.aliyuncs.com/compatible-mode/v1/models",
+            f"{base_url}/models",
             headers={"Authorization": f"Bearer {api_key}"}, timeout=10,
         )
-        check("DashScope API 可访问", resp.status_code == 200, f"HTTP {resp.status_code}",
+        check("LLM API 可访问", resp.status_code == 200, f"HTTP {resp.status_code} ({base_url})",
               "检查 MODEL_API_KEY 是否有效")
     else:
-        check("DashScope API 可访问", False, detail="API Key 未配置",
+        check("LLM API 可访问", False, detail="API Key 未配置",
               hint="编辑 .env 填入 MODEL_API_KEY")
 except Exception as exc:  # noqa: BLE001
-    check("DashScope API 可访问", False, str(exc))
+    check("LLM API 可访问", False, str(exc))
 
 # 9. 向量索引
 index_file = PROJECT_ROOT / "data" / "indexes" / "faiss.index"

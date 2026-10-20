@@ -28,8 +28,9 @@ SYSTEM_PROMPT = """你是一个症状分析专家。从用户描述中提取症�
 
 要求：
 1. 症状使用标准医学术语（如"头痛"而非"脑袋疼"）
-2. 提取所有提到的症状；结合最近对话理解指代（"它"、"这个病"、"那"），
-   从上下文中补全当前描述省略的症状
+2. 提取当前描述中提到的症状。注意：
+   - 只有当前描述使用明确代词（如"它"、"这个病"、"那"）指代上文，或者直接承接上文未完的症状追问（如"那应该挂什么科"）时，才从上下文中补全省略的症状；
+   - 若当前描述已明确指出了具体的疾病诊断（例如"我有糖尿病"、"高血压怎么吃药"），切勿把上文无关的历史症状（如之前提到的头晕、恶心）盲目继承过来！
 3. 综合判断严重程度：low（轻微）/ medium（影响生活）/ high（明显痛苦）/ emergency（急症）
 4. 检测急症关键词：胸痛、呼吸困难、意识模糊等
 5. 当前描述与上下文都没有症状时返回空列表
@@ -37,8 +38,10 @@ SYSTEM_PROMPT = """你是一个症状分析专家。从用户描述中提取症�
 以 JSON 格式输出结果
 
 示例：
-用户描述：我最近头痛、头晕，应该挂什么科？ → {"symptoms": ["头痛", "头晕"], "severity": "low", "has_emergency_keyword": false}
-用户描述：胃疼了一周了 → {"symptoms": ["胃痛", "腹痛"], "severity": "medium", "has_emergency_keyword": false}"""
+1. 用户描述：我最近头痛、头晕，应该挂什么科？ → {"symptoms": ["头痛", "头晕"], "severity": "low", "has_emergency_keyword": false}
+2. 用户描述：胃疼了一周了 → {"symptoms": ["胃痛", "腹痛"], "severity": "medium", "has_emergency_keyword": false}
+3. 用户描述：我有糖尿病，我应该吃什么药？ → {"symptoms": [], "severity": "low", "has_emergency_keyword": false}
+4. 用户描述：那应该挂什么科？（上下文：我最近总是头晕） → {"symptoms": ["头晕"], "severity": "low", "has_emergency_keyword": false}"""
 
 
 def symptom_detector(state: AgentState) -> dict:

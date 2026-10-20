@@ -18,12 +18,15 @@ DIST_DIR = PROJECT_ROOT / "frontend" / "dist"
 
 def build_frontend() -> bool:
     """构建 Vue 前端（npm run build）。"""
+    import shutil
+
     if not (PROJECT_ROOT / "frontend" / "package.json").exists():
         print("⚠️ frontend/ 不存在，跳过前端构建")
         return False
     print("[BUILD] 构建前端 (npm run build)...")
     try:
-        subprocess.run(["npm", "run", "build"], cwd=PROJECT_ROOT / "frontend", check=True)
+        npm_cmd = shutil.which("npm") or "npm"
+        subprocess.run([npm_cmd, "run", "build"], cwd=PROJECT_ROOT / "frontend", shell=sys.platform == "win32", check=True)
         return True
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         print(f"⚠️ 前端构建失败（不影响 API）: {exc}")

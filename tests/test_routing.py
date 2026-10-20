@@ -3,12 +3,18 @@ import os
 import sys
 from pathlib import Path
 
-import pytest
+try:
+    import pytest
+except ImportError:
+    pytest = None
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ.setdefault("MODEL_API_KEY", "test-placeholder")
 
-pytest.importorskip("langgraph")
+if pytest:
+    pytest.importorskip("langgraph")
+else:
+    import langgraph  # noqa: F401
 
 from src.agents.graph import route_by_intent  # noqa: E402
 
@@ -29,3 +35,10 @@ def test_normal_routing_unchanged():
     assert route_by_intent({"intent": "knowledge", "query": "什么是糖尿病"}) == "medical_knowledge"
     assert route_by_intent({"intent": "general", "query": "你好"}) == "general_chat"
     assert route_by_intent({"intent": "emergency", "query": "难受"}) == "safety_checker"
+
+
+if __name__ == "__main__":
+    test_emergency_keyword_escalates_even_when_intent_is_general()
+    test_emergency_keyword_escalates_medication_case()
+    test_normal_routing_unchanged()
+    print("ALL ROUTING TESTS PASSED!")

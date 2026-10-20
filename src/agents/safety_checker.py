@@ -63,9 +63,11 @@ class SafetyCheckerAgent:
         if intent == IntentType.MEDICATION.value or medications:
             disclaimers.append(MEDICATION_SAFETY_REMINDER)
 
-        # 特殊人群提示
+        # 特殊人群提示：检查当前 query 以及多轮对话历史（保持特殊人群生理状态连续性）
+        history = state.get("history", [])
+        combined_text = query + " " + " ".join(str(t.get("content", "")) for t in history[-4:])
         for keyword, reminder in SPECIAL_POPULATION_REMINDERS.items():
-            if keyword in query:
+            if keyword in combined_text:
                 disclaimers.append(reminder)
                 break
 

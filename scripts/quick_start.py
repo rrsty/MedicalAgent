@@ -15,6 +15,7 @@
 """
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -28,6 +29,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 DOCKER_DESKTOP_CANDIDATES = [
     Path(r"C:\Program Files\Docker\Docker\Docker Desktop.exe"),
     Path(r"C:\Program Files\Docker\Docker\frontend\Docker Desktop.exe"),
+    Path(os.path.expandvars(r"%LOCALAPPDATA%\Programs\DockerDesktop\Docker Desktop.exe")),
+    Path(r"C:\Users\rsty\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe"),
 ]
 
 SERVICES = ("neo4j", "redis", "mysql")
@@ -197,12 +200,13 @@ def ensure_frontend() -> None:
         print("  ⚠️ frontend/ 不存在，跳过（仅 API 模式）")
         return
     fe = PROJECT_ROOT / "frontend"
+    npm_cmd = shutil.which("npm") or "npm"
     if not (fe / "node_modules").exists():
         print("  📦 安装前端依赖 (npm install) ...")
-        subprocess.run(["npm", "install", "--no-audit", "--no-fund"],
-                       cwd=fe, shell=False, check=True)
+        subprocess.run([npm_cmd, "install", "--no-audit", "--no-fund"],
+                       cwd=fe, shell=sys.platform == "win32", check=True)
     print("  🔨 构建前端 (npm run build) ...")
-    subprocess.run(["npm", "run", "build"], cwd=fe, shell=False, check=True)
+    subprocess.run([npm_cmd, "run", "build"], cwd=fe, shell=sys.platform == "win32", check=True)
 
 
 # ---------- 4. 启动服务 ----------

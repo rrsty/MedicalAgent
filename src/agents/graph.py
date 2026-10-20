@@ -20,7 +20,7 @@ from langgraph.graph import END, START, StateGraph
 from src.agents.answer_fusion import AnswerFusion
 from src.agents.department_recommender import DepartmentRecommender
 from src.agents.general_chat import general_chat
-from src.agents.intent_classifier import intent_classifier
+from src.agents.intent_classifier import intent_classifier, is_potential_medical_query
 from src.agents.medical_knowledge import MedicalKnowledgeAgent
 from src.agents.medication_advisor import MedicationAdvisor
 from src.agents.pre_visit_advisor import pre_visit_advisor
@@ -70,6 +70,12 @@ def route_by_intent(state: AgentState) -> str:
         return "medical_knowledge"     # 知识：直接强制检索
     if intent == IntentType.EMERGENCY.value:
         return "safety_checker"        # 急症：直奔安全检查
+
+    # 医疗兜底拦截门：若被判为 general，但在流入 general_chat 前检出潜在医疗健康特征，强制拦截回流
+    if is_potential_medical_query(query):
+        logger.warning("触发路由层医疗兜底拦截门: general -> medical_knowledge | query=%s", query[:50])
+        return "medical_knowledge"
+
     return "general_chat"              # 其他：通用对话
 
 
