@@ -37,6 +37,7 @@ def _mysql_conn():
         database=settings.mysql_database,
         charset="utf8mb4",
         connection_timeout=5,
+        use_pure=True,
     )
 
 
@@ -75,16 +76,33 @@ def _ensure_tables(conn) -> None:
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
     )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS request_dedup (
+            request_id VARCHAR(64) PRIMARY KEY,
+            conversation_id VARCHAR(64) NOT NULL,
+            created_at DATETIME NOT NULL,
+            INDEX idx_conv (conversation_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+    )
     conn.commit()
     cursor.close()
     _TABLES_INITIALIZED = True
 
 
-def insert_message(cid: str, role: str, content: str, intent: str = "") -> bool:
-    """写一行消息；conversation 不存在则自动创建（title=首条 user 内容截断 24 字）。"""
-    conn = None
+def insert_message(cid: str, role: str, content: str, intent: str = "", conn=None) -> bool:
+    """写一行消息；conversation 不存在则自动创建（title=首条 user 内容截断 24 字）。
+
+    若外部传入 conn，则在该连接/事务上执行且不 commit / close；
+    若 conn 为 None，则自行创建连接、提交并关闭（保持向后兼容）。
+    """
+    should_close = False
+    cursor = None
     try:
-        conn = _mysql_conn()
+        if conn is None:
+            conn = _mysql_conn()
+            should_close = True
         _ensure_tables(conn)
         now = datetime.now()
         cursor = conn.cursor()
@@ -110,15 +128,28 @@ def insert_message(cid: str, role: str, content: str, intent: str = "") -> bool:
             (cid, role, content, intent, now),
         )
         cursor.execute("UPDATE conversations SET updated_at = %s WHERE id = %s", (now, cid))
-        conn.commit()
-        cursor.close()
+        if should_close:
+            conn.commit()
         return True
     except Exception as exc:  # noqa: BLE001
         logger.error("MySQL 写入失败（不落 Redis）: %s", exc)
+        if should_close and conn is not None:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
         return False
     finally:
-        if conn is not None:
-            conn.close()
+        if cursor is not None:
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if should_close and conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 def list_conversations(limit: int = 50) -> list[dict]:
@@ -164,12 +195,13 @@ def get_messages(cid: str) -> list[dict]:
 
 
 def delete_conversation(cid: str) -> bool:
-    """删除对话及消息（MySQL 两表 + Redis key 同步清空）。"""
+    """删除对话及消息（MySQL 三表 + Redis key 同步清空）。"""
     conn = None
     try:
         conn = _mysql_conn()
         _ensure_tables(conn)
         cursor = conn.cursor()
+        cursor.execute("DELETE FROM request_dedup WHERE conversation_id = %s", (cid,))
         cursor.execute("DELETE FROM messages WHERE conversation_id = %s", (cid,))
         cursor.execute("DELETE FROM conversations WHERE id = %s", (cid,))
         conn.commit()
@@ -274,17 +306,95 @@ def load_context(sid: str) -> list[dict]:
     if pending_user is not None:
         turns.append(pending_user)
 
-    context = turns[-settings.history_window:]
+    context = turns[-settings.history_window * 2:]
     for msg in context:
         append_hot(sid, msg)
     return context
 
 
-def save_turn(sid: str, user_query: str, assistant_answer: str, intent: str) -> None:
-    """双写一轮：先 MySQL（事实源）后 Redis；MySQL 失败则不写 Redis（缓存 ⊆ 数据库）。"""
-    ok = insert_message(sid, "user", user_query, intent)
-    if not ok:
-        return
-    insert_message(sid, "assistant", assistant_answer, intent)
-    append_hot(sid, {"role": "user", "content": user_query})
-    append_hot(sid, {"role": "assistant", "content": assistant_answer})
+def save_turn(
+    sid: str,
+    user_query: str,
+    assistant_answer: str,
+    intent: str,
+    request_id: str | None = None,
+) -> bool:
+    """双写一轮：在单一 MySQL 事务中原子落库 user 和 assistant 消息，成功后再写 Redis 缓存。
+
+    - 幂等性：若提供 request_id，在同一事务中通过 request_dedup 表去重，已存在则直接返回 True；
+    - 原子性：user 消息、assistant 消息、更新 conversation.updated_at 均在同一事务中，任一失败则全量回滚；
+    - 容错补偿：MySQL 失败绝不写 Redis，返回 False；若 Redis 管道写入失败，则调用 delete_hot(sid) 触发失效补偿，
+      恒定保证「缓存 ⊆ 数据库」。
+    """
+    conn = None
+    try:
+        conn = _mysql_conn()
+        conn.autocommit = False
+        _ensure_tables(conn)
+
+        now = datetime.now()
+
+        # 1. request_id 幂等去重检查与插入
+        if request_id:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT request_id FROM request_dedup WHERE request_id = %s",
+                (request_id,),
+            )
+            row = cursor.fetchone()
+            cursor.close()
+            if row is not None:
+                logger.info("request_id %s 已存在，幂等跳过重复写入", request_id)
+                conn.rollback()
+                return True
+
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO request_dedup (request_id, conversation_id, created_at) "
+                "VALUES (%s, %s, %s)",
+                (request_id, sid, now),
+            )
+            cursor.close()
+
+        # 2. 在同一事务中插入 user 消息
+        ok_user = insert_message(sid, "user", user_query, intent, conn=conn)
+        if not ok_user:
+            raise RuntimeError("写入 user 消息失败")
+
+        # 3. 在同一事务中插入 assistant 消息
+        ok_assistant = insert_message(sid, "assistant", assistant_answer, intent, conn=conn)
+        if not ok_assistant:
+            raise RuntimeError("写入 assistant 消息失败")
+
+        # 4. 提交单一事务
+        conn.commit()
+    except Exception as exc:  # noqa: BLE001
+        logger.error("MySQL 单事务保存一轮失败，执行回滚: %s", exc)
+        if conn is not None:
+            try:
+                conn.rollback()
+            except Exception as rb_exc:  # noqa: BLE001
+                logger.error("MySQL 回滚失败: %s", rb_exc)
+        return False
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    # 5. 提交成功后管道更新 Redis 热缓存（Post-Commit Cache Update）
+    try:
+        client = _get_redis()
+        key = hot_key(sid)
+        pipe = client.pipeline()
+        pipe.lpush(key, json.dumps({"role": "user", "content": user_query}, ensure_ascii=False))
+        pipe.lpush(key, json.dumps({"role": "assistant", "content": assistant_answer}, ensure_ascii=False))
+        pipe.ltrim(key, 0, settings.history_window * 2 - 1)
+        pipe.expire(key, int(timedelta(hours=settings.history_ttl_hours).total_seconds()))
+        pipe.execute()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Redis 管道写入失败，触发失效补偿清理热缓存: %s", exc)
+        delete_hot(sid)
+
+    return True

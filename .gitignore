@@ -46,3 +46,4 @@ evals/last_results*.json
 server.log
 _ref/
 .mimosa/
+.agents/

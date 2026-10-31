@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from src.agents.safety_checker import EMERGENCY_SYMPTOM_KEYWORDS
 from src.common.utils import coerce_str_list
+from src.common.context_window import format_history_block
 from src.agents.state import AgentState, Severity
 from src.common.llm import get_llm
 from src.common.logger import setup_logger
@@ -52,11 +53,13 @@ def symptom_detector(state: AgentState) -> dict:
     keyword_hit = any(kw in query for kw in EMERGENCY_SYMPTOM_KEYWORDS)
     try:
         # 多轮上下文：最近 3 轮（6 条消息），供指代消解与症状补全（PRD US9 / t01）
-        context_lines = [
-            f"{'用户' if t.get('role') == 'user' else '助手'}：{t.get('content', '')[:200]}"
-            for t in history[-6:]
-        ]
-        context_block = f"最近对话：\n" + "\n".join(context_lines) + "\n\n" if context_lines else ""
+        context_block = format_history_block(
+            history,
+            max_messages=6,
+            per_message_chars=200,
+            total_chars=1200,
+            title="最近对话：",
+        )
         def _detect(human_text: str) -> SymptomDetection:
             return get_llm(temperature=0.1).with_structured_output(
                 SymptomDetection, method="json_mode"

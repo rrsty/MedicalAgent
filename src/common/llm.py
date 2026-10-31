@@ -31,6 +31,7 @@ def get_llm(temperature: float = 0.7) -> ChatOpenAI:
         temperature=temperature,
         timeout=120,
         max_retries=2,
+        max_tokens=settings.model_max_output_tokens,
         **kwargs,
     )
 

@@ -1,5 +1,6 @@
 """通用对话 Agent：带上下文记忆的自然拟人回复（有温度、有常识、守底线）。"""
 from src.agents.state import AgentState
+from src.common.context_window import build_chat_history
 from src.common.llm import get_llm
 from src.common.logger import setup_logger
 
@@ -22,10 +23,12 @@ def general_chat(state: AgentState) -> dict:
     history = state.get("history", [])
 
     messages = [("system", SYSTEM_PROMPT)]
-    # 注入最近 3 轮（6 条消息）上下文，确保多轮记忆与自然承接
-    for turn in history[-6:]:
-        role = "user" if turn.get("role") == "user" else "assistant"
-        messages.append((role, str(turn.get("content", ""))[:400]))
+    messages.extend(build_chat_history(
+        history,
+        max_messages=6,
+        per_message_chars=400,
+        total_chars=2400,
+    ))
     messages.append(("human", query))
 
     try:

@@ -18,6 +18,8 @@ import re
 import sys
 from pathlib import Path
 
+hasattr(sys.stdout, "reconfigure") and sys.stdout.reconfigure(encoding="utf-8")
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 

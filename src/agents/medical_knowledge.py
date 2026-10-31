@@ -16,6 +16,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from config.settings import settings
 from src.agents.state import AgentState
+from src.common.context_window import compact_text, format_context_items, format_history_block
 from src.common.llm import get_llm
 from src.common.logger import setup_logger
 from src.common.utils import truncate
@@ -106,7 +107,7 @@ class MedicalKnowledgeAgent:
         """在检索结果之上跑 ReAct；返回 (answer, tool_names, tool_messages_contexts)。"""
         agent = self._get_react_agent()
         system = _REACT_SYSTEM_PROMPT.format(
-            contexts="\n".join(f"- {c}" for c in contexts[:10]) or "（无）"
+            contexts=format_context_items(contexts) or "（无）"
         )
         history_block = _history_block(history)
         res = agent.invoke({
@@ -167,9 +168,10 @@ class MedicalKnowledgeAgent:
         )
         retrieval_query = query
         if last_user and last_user != query:
-            retrieval_query = f"{query} {last_user[:120]}"
+            previous_user = compact_text(last_user, 240, tail_ratio=0.35)
+            retrieval_query = f"{query} {previous_user}"
             trace.append({"node": "medical_knowledge", "step": "context_merge",
-                          "context_from": last_user[:60]})
+                          "context_from": compact_text(last_user, 80, tail_ratio=0.35)})
 
         # Step 1 强制混合检索（grounding 底线，模型无法跳过）
         entities, contexts = self._retrieve(retrieval_query, symptoms)
@@ -228,7 +230,7 @@ class MedicalKnowledgeAgent:
         self, query: str, contexts: list[str], history: list | None = None
     ) -> str:
         try:
-            context_text = "\n".join(f"- {c}" for c in contexts[:10])
+            context_text = format_context_items(contexts)
             resp = get_llm(0.3).invoke([
                 ("system", _GROUNDED_SYSTEM_PROMPT),
                 (
@@ -245,13 +247,13 @@ class MedicalKnowledgeAgent:
 
 def _history_block(history: list | None) -> str:
     """把最近对话拼成提示词片段（供指代消解）；空历史返回空串。"""
-    if not history:
-        return ""
-    lines = [
-        f"{'用户' if t.get('role') == 'user' else '助手'}：{t.get('content', '')[:150]}"
-        for t in history[-4:]
-    ]
-    return "最近对话（用于理解指代）：\n" + "\n".join(lines) + "\n\n"
+    return format_history_block(
+        history,
+        max_messages=4,
+        per_message_chars=180,
+        total_chars=720,
+        title="最近对话（用于理解指代）：",
+    )
 
 
 # 解析器共享：把 trace 序列化成可读文本（answer_fusion / SSE 调试用）

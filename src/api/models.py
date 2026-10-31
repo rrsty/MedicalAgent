@@ -10,6 +10,8 @@
                          vector_index_size, agent_ready
   ConversationSummary  : id, title, created_at, updated_at
 """
+from typing import Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -20,6 +22,8 @@ class ConsultationRequest(BaseModel):
         ..., description="会话ID（== conversation_id，客户端生成 uuid）",
         min_length=6, max_length=64, pattern=r"^[A-Za-z0-9_\-]+$",
     )
+    request_id: Optional[str] = None
+    history: Optional[List[Dict[str, str]]] = None
 
 
 class MedicationItem(BaseModel):
@@ -50,6 +54,8 @@ class ConsultationResponse(BaseModel):
     trace: list[dict] = Field(default_factory=list, description="Agent 执行链路（调试观测）")
     duration_ms: int = Field(default=0, description="处理耗时（毫秒）")
     session_id: str = Field(default="default", description="会话ID")
+    needs_clarification: Optional[bool] = False
+    retrieved_contexts: Optional[List[str]] = Field(default_factory=list)
 
 
 class HealthResponse(BaseModel):

@@ -37,10 +37,11 @@ class AnswerFusion:
 
     @staticmethod
     def _deterministic_fallback(state: AgentState) -> str:
-        """确定性拼装（LLM 失败兜底，绝不丢信息）。"""
+        """确定性拼装（LLM 失败兜底，按实际可用内容增量组合，绝不丢信息）。"""
         parts: list[str] = []
         intent = state.get("intent", "")
 
+        # 1. 挂号与就诊建议
         if intent == "appointment":
             if state.get("symptoms"):
                 parts.append(f"**检测到的症状**：{'、'.join(state['symptoms'])}")
@@ -52,23 +53,35 @@ class AnswerFusion:
                 )
             if state.get("advice"):
                 parts.append("**就医前建议**：\n" + "\n".join(f"- {a}" for a in state["advice"]))
-        elif intent == "medication":
-            for med in state.get("medications", []):
+
+        # 2. 独立用药参考（无论何种意图，只要有药物信息均可输出）
+        meds = state.get("medications", [])
+        if meds:
+            med_lines = []
+            for med in meds:
                 line = f"- **{med.get('name', '')}**"
                 if med.get("purpose"):
                     line += f"：{med['purpose']}"
                 if med.get("side_effects"):
                     line += f"（常见副作用：{med['side_effects']}）"
-                parts.append(line)
-        elif state.get("knowledge_answer"):
-            parts.append(state["knowledge_answer"])
+                med_lines.append(line)
+            if med_lines:
+                parts.append("**用药参考**：\n" + "\n".join(med_lines))
 
+        # 3. 独立医学知识回答检查（尤其是 medication 转医学知识且药物列表为空时，绝不丢弃）
+        knowledge_ans = state.get("knowledge_answer")
+        if knowledge_ans and str(knowledge_ans).strip():
+            parts.append(str(knowledge_ans).strip())
+
+        # 4. 急症与安全警示（置顶醒目位置）
         if state.get("warnings"):
             parts.insert(0, "\n".join(state["warnings"]))
 
+        # 5. 全空时的终极兜底
         if not parts:
             parts.append("抱歉，暂时无法处理您的问题，请尝试换一种提问方式。")
 
+        # 6. 免责声明（固定置底）
         disclaimers = state.get("disclaimers", [])
         if disclaimers:
             parts.append("---\n" + "\n\n".join(disclaimers))

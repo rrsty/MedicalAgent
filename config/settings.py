@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     )
     model_api_key: str = Field(default="", description="LLM API Key")
     model_name: str = Field(default="qwen-plus", description="主模型名称")
+    model_max_output_tokens: int = Field(
+        default=2048,
+        ge=128,
+        le=8192,
+        description="主模型单次最大输出 Token，防止失控生成污染下一轮上下文",
+    )
 
     # ===== 抽取模型（可切换到自部署 vLLM 微调模型；base_url 留空=回退主 LLM）=====
     extraction_model_base_url: str = Field(default="", description="抽取专用 LLM 地址；留空回退主模型")

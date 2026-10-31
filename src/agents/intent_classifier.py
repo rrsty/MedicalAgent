@@ -2,6 +2,7 @@
 from config.settings import settings
 from src.agents.safety_checker import EMERGENCY_SYMPTOM_KEYWORDS
 from src.agents.state import AgentState, IntentType
+from src.common.context_window import build_chat_history
 from src.common.llm import get_llm
 from src.common.utils import parse_llm_json
 from src.common.logger import setup_logger
@@ -172,10 +173,13 @@ def intent_classifier(state: AgentState) -> dict:
 
     try:
         messages = [("system", SYSTEM_PROMPT)]
-        # 拼接最近对话作为上下文（多轮指代消解："它/这个病"）
-        for turn in state.get("history", [])[-4:]:
-            role = "user" if turn.get("role") == "user" else "assistant"
-            messages.append((role, turn.get("content", "")[:300]))
+        # 统一预算并保留长回答的开头与结论，避免只截前缀丢掉关键结论。
+        messages.extend(build_chat_history(
+            state.get("history", []),
+            max_messages=4,
+            per_message_chars=300,
+            total_chars=1200,
+        ))
         messages.append(("human", query))
 
         resp = get_llm(temperature=0.1).invoke(messages)
