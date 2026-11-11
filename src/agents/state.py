@@ -38,6 +38,7 @@ class AgentState(TypedDict, total=False):
     # 症状检测 Agent 输出
     symptoms: list[str]
     severity: str
+    emergency_audit: dict
 
     # 科室推荐 Agent 输出
     departments: list[str]

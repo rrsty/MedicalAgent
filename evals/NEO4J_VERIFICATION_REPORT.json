@@ -1,0 +1,1218 @@
+{
+  "tested_at": "2026-11-11T21:03:19.733985+08:00",
+  "endpoint": {
+    "host": "127.0.0.1",
+    "port": 7687
+  },
+  "scope": "read-only live Neo4j; no writes, model calls or generated-answer scoring",
+  "config": {
+    "kg_max_hops": 2,
+    "per_hop_limit": 10,
+    "total_limit": 25
+  },
+  "checks": [
+    {
+      "name": "Bolt 连接与认证",
+      "passed": true,
+      "details": {
+        "elapsed_ms": 21.846
+      }
+    },
+    {
+      "name": "知识图谱非空",
+      "passed": true,
+      "details": {
+        "nodes": 535,
+        "relationships": 716
+      }
+    },
+    {
+      "name": "现有索引状态",
+      "passed": true,
+      "details": {
+        "indexes": 10,
+        "constraints": 8
+      }
+    },
+    {
+      "name": "三类测试锚点覆盖",
+      "passed": true,
+      "details": [
+        {
+          "type": "Disease",
+          "name": "高血压",
+          "degree": 27
+        },
+        {
+          "type": "Medication",
+          "name": "对乙酰氨基酚",
+          "degree": 6
+        },
+        {
+          "type": "Symptom",
+          "name": "乏力",
+          "degree": 6
+        }
+      ]
+    },
+    {
+      "name": "Disease 默认多跳查询",
+      "passed": true,
+      "details": {
+        "root": "高血压",
+        "error": null,
+        "triples": 20,
+        "hop1": 10,
+        "hop2": 10,
+        "hop3": 0
+      }
+    },
+    {
+      "name": "Disease 三元组真实方向",
+      "passed": true,
+      "details": {
+        "matched_in_database": 20,
+        "returned": 20
+      }
+    },
+    {
+      "name": "Disease 单跳",
+      "passed": true,
+      "details": {
+        "triples": 10,
+        "applied_hops": 1,
+        "error": null
+      }
+    },
+    {
+      "name": "Disease 超额跳数截断",
+      "passed": true,
+      "details": {
+        "triples": 20,
+        "applied_hops": 2,
+        "error": null
+      }
+    },
+    {
+      "name": "Disease 单跳分支限额",
+      "passed": true,
+      "details": {
+        "triples": 2,
+        "applied_hops": 2,
+        "error": null
+      }
+    },
+    {
+      "name": "Disease 总量限额",
+      "passed": true,
+      "details": {
+        "triples": 3,
+        "applied_hops": 2,
+        "error": null
+      }
+    },
+    {
+      "name": "Medication 默认多跳查询",
+      "passed": true,
+      "details": {
+        "root": "对乙酰氨基酚",
+        "error": null,
+        "triples": 16,
+        "hop1": 6,
+        "hop2": 10,
+        "hop3": 0
+      }
+    },
+    {
+      "name": "Medication 三元组真实方向",
+      "passed": true,
+      "details": {
+        "matched_in_database": 16,
+        "returned": 16
+      }
+    },
+    {
+      "name": "Medication 单跳",
+      "passed": true,
+      "details": {
+        "triples": 6,
+        "applied_hops": 1,
+        "error": null
+      }
+    },
+    {
+      "name": "Medication 超额跳数截断",
+      "passed": true,
+      "details": {
+        "triples": 16,
+        "applied_hops": 2,
+        "error": null
+      }
+    },
+    {
+      "name": "Medication 单跳分支限额",
+      "passed": true,
+      "details": {
+        "triples": 2,
+        "applied_hops": 2,
+        "error": null
+      }
+    },
+    {
+      "name": "Medication 总量限额",
+      "passed": true,
+      "details": {
+        "triples": 3,
+        "applied_hops": 2,
+        "error": null
+      }
+    },
+    {
+      "name": "Symptom 默认多跳查询",
+      "passed": true,
+      "details": {
+        "root": "乏力",
+        "error": null,
+        "triples": 16,
+        "hop1": 6,
+        "hop2": 10,
+        "hop3": 0
+      }
+    },
+    {
+      "name": "Symptom 三元组真实方向",
+      "passed": true,
+      "details": {
+        "matched_in_database": 16,
+        "returned": 16
+      }
+    },
+    {
+      "name": "Symptom 单跳",
+      "passed": true,
+      "details": {
+        "triples": 6,
+        "applied_hops": 1,
+        "error": null
+      }
+    },
+    {
+      "name": "Symptom 超额跳数截断",
+      "passed": true,
+      "details": {
+        "triples": 16,
+        "applied_hops": 2,
+        "error": null
+      }
+    },
+    {
+      "name": "Symptom 单跳分支限额",
+      "passed": true,
+      "details": {
+        "triples": 2,
+        "applied_hops": 2,
+        "error": null
+      }
+    },
+    {
+      "name": "Symptom 总量限额",
+      "passed": true,
+      "details": {
+        "triples": 3,
+        "applied_hops": 2,
+        "error": null
+      }
+    },
+    {
+      "name": "不存在实体返回空结果",
+      "passed": true,
+      "details": {
+        "root_entity": "__medgraph_readonly_nonexistent_20261111__",
+        "configured_max_hops": 2,
+        "applied_hops": 2,
+        "executed_hops": 1,
+        "total_triples": 0,
+        "hop1_count": 0,
+        "hop2_count": 0,
+        "hop3_count": 0,
+        "triples": [],
+        "visited_entities": [
+          "__medgraph_readonly_nonexistent_20261111__"
+        ],
+        "provenance": {
+          "source_platform": "unknown",
+          "medical_reviewed": false,
+          "evidence_grade": "unverified"
+        }
+      }
+    },
+    {
+      "name": "非法参数 max_hops",
+      "passed": true,
+      "details": "0 被拒绝"
+    },
+    {
+      "name": "非法参数 limit_per_hop",
+      "passed": true,
+      "details": "0 被拒绝"
+    },
+    {
+      "name": "非法参数 total_limit",
+      "passed": true,
+      "details": "0 被拒绝"
+    },
+    {
+      "name": "Text2Cypher 拒绝写入",
+      "passed": true,
+      "details": {
+        "error": "检测到写关键字「CREATE」，已拒绝执行",
+        "database_called": false
+      }
+    },
+    {
+      "name": "Text2Cypher 拒绝无界路径",
+      "passed": true,
+      "details": {
+        "error": "拒绝无界或无法验证的可变长度路径",
+        "database_called": false
+      }
+    },
+    {
+      "name": "Text2Cypher 拒绝超额路径",
+      "passed": true,
+      "details": {
+        "error": "查询关系跳数超过配置上限 2",
+        "database_called": false
+      }
+    },
+    {
+      "name": "Text2Cypher 真实 EXPLAIN 与读取",
+      "passed": true,
+      "details": {
+        "success": true,
+        "columns": [
+          "disease",
+          "symptom"
+        ],
+        "rows": [
+          [
+            "高血压",
+            "疲劳"
+          ],
+          [
+            "高血压",
+            "耳鸣"
+          ],
+          [
+            "高血压",
+            "心悸"
+          ]
+        ],
+        "row_count": 3,
+        "cypher": "MATCH (d:Disease)-[:HAS_SYMPTOM]->(s:Symptom) RETURN d.name AS disease, s.name AS symptom LIMIT 3"
+      }
+    },
+    {
+      "name": "真实后端评测语料读取",
+      "passed": true,
+      "details": {
+        "documents": 535,
+        "corpus_hash": "e14c9e3b51c84c75ec303061f60167c2e8d6165f1f322cc0b8e761259ce7ec6c"
+      }
+    }
+  ],
+  "latency": [
+    {
+      "root": "高血压",
+      "type": "Disease",
+      "n": 10,
+      "first_in_this_process_ms": 15.957,
+      "p50_ms": 11.962,
+      "p95_ms": 13.623,
+      "min_ms": 10.773,
+      "max_ms": 14.002
+    },
+    {
+      "root": "对乙酰氨基酚",
+      "type": "Medication",
+      "n": 10,
+      "first_in_this_process_ms": 10.831,
+      "p50_ms": 10.738,
+      "p95_ms": 13.074,
+      "min_ms": 9.797,
+      "max_ms": 13.318
+    },
+    {
+      "root": "乏力",
+      "type": "Symptom",
+      "n": 10,
+      "first_in_this_process_ms": 11.203,
+      "p50_ms": 9.435,
+      "p95_ms": 10.968,
+      "min_ms": 8.173,
+      "max_ms": 11.036
+    }
+  ],
+  "samples": [
+    {
+      "root_entity": "高血压",
+      "configured_max_hops": 2,
+      "applied_hops": 2,
+      "executed_hops": 2,
+      "total_triples": 20,
+      "hop1_count": 10,
+      "hop2_count": 10,
+      "hop3_count": 0,
+      "triples": [
+        {
+          "subject": "心血管内科",
+          "subject_type": "Department",
+          "predicate": "HANDLES_DISEASE",
+          "object": "高血压",
+          "object_type": "Disease",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "高血压",
+          "subject_type": "Disease",
+          "predicate": "AFFECTS_BODY_PART",
+          "object": "心脏",
+          "object_type": "BodyPart",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "高血压",
+          "subject_type": "Disease",
+          "predicate": "AFFECTS_BODY_PART",
+          "object": "肾脏",
+          "object_type": "BodyPart",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "高血压",
+          "subject_type": "Disease",
+          "predicate": "AFFECTS_BODY_PART",
+          "object": "血管",
+          "object_type": "BodyPart",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "高血压",
+          "subject_type": "Disease",
+          "predicate": "BELONGS_TO_DEPARTMENT",
+          "object": "心血管内科",
+          "object_type": "Department",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "高血压",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "头晕",
+          "object_type": "Symptom",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "高血压",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "头痛",
+          "object_type": "Symptom",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "高血压",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "心悸",
+          "object_type": "Symptom",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "高血压",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "疲劳",
+          "object_type": "Symptom",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "高血压",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "耳鸣",
+          "object_type": "Symptom",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "心血管内科",
+          "subject_type": "Department",
+          "predicate": "HANDLES_DISEASE",
+          "object": "冠心病",
+          "object_type": "Disease",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "心血管内科",
+          "subject_type": "Department",
+          "predicate": "HANDLES_DISEASE",
+          "object": "冠心病心绞痛",
+          "object_type": "Disease",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "偏头痛",
+          "subject_type": "Disease",
+          "predicate": "AFFECTS_BODY_PART",
+          "object": "血管",
+          "object_type": "BodyPart",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "冠心病",
+          "subject_type": "Disease",
+          "predicate": "AFFECTS_BODY_PART",
+          "object": "心脏",
+          "object_type": "BodyPart",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "冠心病",
+          "subject_type": "Disease",
+          "predicate": "BELONGS_TO_DEPARTMENT",
+          "object": "心血管内科",
+          "object_type": "Department",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "冠心病",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "心悸",
+          "object_type": "Symptom",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "冠心病心绞痛",
+          "subject_type": "Disease",
+          "predicate": "AFFECTS_BODY_PART",
+          "object": "心脏",
+          "object_type": "BodyPart",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "冠心病心绞痛",
+          "subject_type": "Disease",
+          "predicate": "BELONGS_TO_DEPARTMENT",
+          "object": "心血管内科",
+          "object_type": "Department",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "头痛",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "头晕",
+          "object_type": "Symptom",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "流感",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "头痛",
+          "object_type": "Symptom",
+          "hop": 2,
+          "provenance": []
+        }
+      ],
+      "visited_entities": [
+        "偏头痛",
+        "冠心病",
+        "冠心病心绞痛",
+        "头晕",
+        "头痛",
+        "心悸",
+        "心脏",
+        "心血管内科",
+        "流感",
+        "疲劳",
+        "耳鸣",
+        "肾脏",
+        "血管",
+        "高血压"
+      ],
+      "provenance": {
+        "source_platform": "unknown",
+        "medical_reviewed": false,
+        "evidence_grade": "unverified"
+      }
+    },
+    {
+      "root_entity": "对乙酰氨基酚",
+      "configured_max_hops": 2,
+      "applied_hops": 2,
+      "executed_hops": 2,
+      "total_triples": 16,
+      "hop1_count": 6,
+      "hop2_count": 10,
+      "hop3_count": 0,
+      "triples": [
+        {
+          "subject": "头痛",
+          "subject_type": "Disease",
+          "predicate": "TREATED_BY_MEDICATION",
+          "object": "对乙酰氨基酚",
+          "object_type": "Medication",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "感冒",
+          "subject_type": "Disease",
+          "predicate": "TREATED_BY_MEDICATION",
+          "object": "对乙酰氨基酚",
+          "object_type": "Medication",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "流感",
+          "subject_type": "Disease",
+          "predicate": "TREATED_BY_MEDICATION",
+          "object": "对乙酰氨基酚",
+          "object_type": "Medication",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "对乙酰氨基酚",
+          "subject_type": "Medication",
+          "predicate": "TREATS_DISEASE",
+          "object": "头痛",
+          "object_type": "Disease",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "对乙酰氨基酚",
+          "subject_type": "Medication",
+          "predicate": "TREATS_DISEASE",
+          "object": "感冒",
+          "object_type": "Disease",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "对乙酰氨基酚",
+          "subject_type": "Medication",
+          "predicate": "TREATS_DISEASE",
+          "object": "流感",
+          "object_type": "Disease",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "呼吸内科",
+          "subject_type": "Department",
+          "predicate": "HANDLES_DISEASE",
+          "object": "感冒",
+          "object_type": "Disease",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "呼吸内科",
+          "subject_type": "Department",
+          "predicate": "HANDLES_DISEASE",
+          "object": "流感",
+          "object_type": "Disease",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "神经内科",
+          "subject_type": "Department",
+          "predicate": "HANDLES_DISEASE",
+          "object": "头痛",
+          "object_type": "Disease",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "头痛",
+          "subject_type": "Disease",
+          "predicate": "AFFECTS_BODY_PART",
+          "object": "头部",
+          "object_type": "BodyPart",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "头痛",
+          "subject_type": "Disease",
+          "predicate": "BELONGS_TO_DEPARTMENT",
+          "object": "神经内科",
+          "object_type": "Department",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "头痛",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "头晕",
+          "object_type": "Symptom",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "头痛",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "头部胀痛",
+          "object_type": "Symptom",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "头痛",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "搏动性疼痛",
+          "object_type": "Symptom",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "头痛",
+          "subject_type": "Disease",
+          "predicate": "NEEDS_EXAMINATION",
+          "object": "头部CT",
+          "object_type": "Examination",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "头痛",
+          "subject_type": "Disease",
+          "predicate": "NEEDS_EXAMINATION",
+          "object": "脑电图",
+          "object_type": "Examination",
+          "hop": 2,
+          "provenance": []
+        }
+      ],
+      "visited_entities": [
+        "呼吸内科",
+        "头晕",
+        "头痛",
+        "头部",
+        "头部CT",
+        "头部胀痛",
+        "对乙酰氨基酚",
+        "感冒",
+        "搏动性疼痛",
+        "流感",
+        "神经内科",
+        "脑电图"
+      ],
+      "provenance": {
+        "source_platform": "unknown",
+        "medical_reviewed": false,
+        "evidence_grade": "unverified"
+      }
+    },
+    {
+      "root_entity": "乏力",
+      "configured_max_hops": 2,
+      "applied_hops": 2,
+      "executed_hops": 2,
+      "total_triples": 16,
+      "hop1_count": 6,
+      "hop2_count": 10,
+      "hop3_count": 0,
+      "triples": [
+        {
+          "subject": "抑郁症",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "乏力",
+          "object_type": "Symptom",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "流感",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "乏力",
+          "object_type": "Symptom",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "类风湿关节炎",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "乏力",
+          "object_type": "Symptom",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "糖尿病",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "乏力",
+          "object_type": "Symptom",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "脂肪肝",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "乏力",
+          "object_type": "Symptom",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "贫血",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "乏力",
+          "object_type": "Symptom",
+          "hop": 1,
+          "provenance": []
+        },
+        {
+          "subject": "内分泌科",
+          "subject_type": "Department",
+          "predicate": "HANDLES_DISEASE",
+          "object": "糖尿病",
+          "object_type": "Disease",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "呼吸内科",
+          "subject_type": "Department",
+          "predicate": "HANDLES_DISEASE",
+          "object": "流感",
+          "object_type": "Disease",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "消化内科",
+          "subject_type": "Department",
+          "predicate": "HANDLES_DISEASE",
+          "object": "脂肪肝",
+          "object_type": "Disease",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "精神心理科",
+          "subject_type": "Department",
+          "predicate": "HANDLES_DISEASE",
+          "object": "抑郁症",
+          "object_type": "Disease",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "血液科",
+          "subject_type": "Department",
+          "predicate": "HANDLES_DISEASE",
+          "object": "贫血",
+          "object_type": "Disease",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "风湿免疫科",
+          "subject_type": "Department",
+          "predicate": "HANDLES_DISEASE",
+          "object": "类风湿关节炎",
+          "object_type": "Disease",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "抑郁症",
+          "subject_type": "Disease",
+          "predicate": "AFFECTS_BODY_PART",
+          "object": "大脑",
+          "object_type": "BodyPart",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "抑郁症",
+          "subject_type": "Disease",
+          "predicate": "BELONGS_TO_DEPARTMENT",
+          "object": "精神心理科",
+          "object_type": "Department",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "抑郁症",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "兴趣减退",
+          "object_type": "Symptom",
+          "hop": 2,
+          "provenance": []
+        },
+        {
+          "subject": "抑郁症",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "情绪低落",
+          "object_type": "Symptom",
+          "hop": 2,
+          "provenance": []
+        }
+      ],
+      "visited_entities": [
+        "乏力",
+        "兴趣减退",
+        "内分泌科",
+        "呼吸内科",
+        "大脑",
+        "情绪低落",
+        "抑郁症",
+        "流感",
+        "消化内科",
+        "类风湿关节炎",
+        "精神心理科",
+        "糖尿病",
+        "脂肪肝",
+        "血液科",
+        "贫血",
+        "风湿免疫科"
+      ],
+      "provenance": {
+        "source_platform": "unknown",
+        "medical_reviewed": false,
+        "evidence_grade": "unverified"
+      }
+    }
+  ],
+  "server": [
+    {
+      "name": "Neo4j Kernel",
+      "versions": [
+        "5.26.32"
+      ],
+      "edition": "community"
+    }
+  ],
+  "nodes": 535,
+  "relationships": 716,
+  "node_types": [
+    {
+      "label": "BodyPart",
+      "count": 46
+    },
+    {
+      "label": "Department",
+      "count": 16
+    },
+    {
+      "label": "Disease",
+      "count": 40
+    },
+    {
+      "label": "Examination",
+      "count": 62
+    },
+    {
+      "label": "Food",
+      "count": 77
+    },
+    {
+      "label": "Medication",
+      "count": 74
+    },
+    {
+      "label": "Precaution",
+      "count": 101
+    },
+    {
+      "label": "Symptom",
+      "count": 119
+    }
+  ],
+  "relation_types": [
+    {
+      "type": "AFFECTS_BODY_PART",
+      "count": 75
+    },
+    {
+      "type": "BELONGS_TO_DEPARTMENT",
+      "count": 40
+    },
+    {
+      "type": "HANDLES_DISEASE",
+      "count": 40
+    },
+    {
+      "type": "HAS_SIDE_EFFECT",
+      "count": 3
+    },
+    {
+      "type": "HAS_SYMPTOM",
+      "count": 161
+    },
+    {
+      "type": "INTERACTS_WITH",
+      "count": 1
+    },
+    {
+      "type": "NEEDS_EXAMINATION",
+      "count": 89
+    },
+    {
+      "type": "RECOMMENDS_FOOD",
+      "count": 125
+    },
+    {
+      "type": "TREATED_BY_MEDICATION",
+      "count": 91
+    },
+    {
+      "type": "TREATS_DISEASE",
+      "count": 91
+    }
+  ],
+  "indexes": [
+    {
+      "name": "bodypart_name_unique",
+      "type": "RANGE",
+      "state": "ONLINE",
+      "labelsOrTypes": [
+        "BodyPart"
+      ],
+      "properties": [
+        "name"
+      ]
+    },
+    {
+      "name": "department_name_unique",
+      "type": "RANGE",
+      "state": "ONLINE",
+      "labelsOrTypes": [
+        "Department"
+      ],
+      "properties": [
+        "name"
+      ]
+    },
+    {
+      "name": "disease_name_unique",
+      "type": "RANGE",
+      "state": "ONLINE",
+      "labelsOrTypes": [
+        "Disease"
+      ],
+      "properties": [
+        "name"
+      ]
+    },
+    {
+      "name": "examination_name_unique",
+      "type": "RANGE",
+      "state": "ONLINE",
+      "labelsOrTypes": [
+        "Examination"
+      ],
+      "properties": [
+        "name"
+      ]
+    },
+    {
+      "name": "food_name_unique",
+      "type": "RANGE",
+      "state": "ONLINE",
+      "labelsOrTypes": [
+        "Food"
+      ],
+      "properties": [
+        "name"
+      ]
+    },
+    {
+      "name": "index_343aff4e",
+      "type": "LOOKUP",
+      "state": "ONLINE",
+      "labelsOrTypes": null,
+      "properties": null
+    },
+    {
+      "name": "index_f7700477",
+      "type": "LOOKUP",
+      "state": "ONLINE",
+      "labelsOrTypes": null,
+      "properties": null
+    },
+    {
+      "name": "medication_name_unique",
+      "type": "RANGE",
+      "state": "ONLINE",
+      "labelsOrTypes": [
+        "Medication"
+      ],
+      "properties": [
+        "name"
+      ]
+    },
+    {
+      "name": "precaution_name_unique",
+      "type": "RANGE",
+      "state": "ONLINE",
+      "labelsOrTypes": [
+        "Precaution"
+      ],
+      "properties": [
+        "name"
+      ]
+    },
+    {
+      "name": "symptom_name_unique",
+      "type": "RANGE",
+      "state": "ONLINE",
+      "labelsOrTypes": [
+        "Symptom"
+      ],
+      "properties": [
+        "name"
+      ]
+    }
+  ],
+  "constraints": [
+    {
+      "name": "bodypart_name_unique",
+      "type": "UNIQUENESS",
+      "labelsOrTypes": [
+        "BodyPart"
+      ],
+      "properties": [
+        "name"
+      ]
+    },
+    {
+      "name": "department_name_unique",
+      "type": "UNIQUENESS",
+      "labelsOrTypes": [
+        "Department"
+      ],
+      "properties": [
+        "name"
+      ]
+    },
+    {
+      "name": "disease_name_unique",
+      "type": "UNIQUENESS",
+      "labelsOrTypes": [
+        "Disease"
+      ],
+      "properties": [
+        "name"
+      ]
+    },
+    {
+      "name": "examination_name_unique",
+      "type": "UNIQUENESS",
+      "labelsOrTypes": [
+        "Examination"
+      ],
+      "properties": [
+        "name"
+      ]
+    },
+    {
+      "name": "food_name_unique",
+      "type": "UNIQUENESS",
+      "labelsOrTypes": [
+        "Food"
+      ],
+      "properties": [
+        "name"
+      ]
+    },
+    {
+      "name": "medication_name_unique",
+      "type": "UNIQUENESS",
+      "labelsOrTypes": [
+        "Medication"
+      ],
+      "properties": [
+        "name"
+      ]
+    },
+    {
+      "name": "precaution_name_unique",
+      "type": "UNIQUENESS",
+      "labelsOrTypes": [
+        "Precaution"
+      ],
+      "properties": [
+        "name"
+      ]
+    },
+    {
+      "name": "symptom_name_unique",
+      "type": "UNIQUENESS",
+      "labelsOrTypes": [
+        "Symptom"
+      ],
+      "properties": [
+        "name"
+      ]
+    }
+  ],
+  "self_loops": 0,
+  "isolated_nodes": 102,
+  "isolated_node_types": [
+    {
+      "type": "Medication",
+      "count": 1
+    },
+    {
+      "type": "Precaution",
+      "count": 101
+    }
+  ],
+  "provenance": {
+    "nodes_with_records": 0,
+    "relationships_with_records": 0
+  },
+  "corpus_hash": "e14c9e3b51c84c75ec303061f60167c2e8d6165f1f322cc0b8e761259ce7ec6c",
+  "passed": 31,
+  "failed": 0,
+  "server_notifications": 514
+}

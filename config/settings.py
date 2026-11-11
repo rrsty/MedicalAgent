@@ -62,12 +62,33 @@ class Settings(BaseSettings):
         description="实体链接高精度阈值（设计默认 0.85；基于随项目 BGE-M3 实测口语词相似度 0.82~0.87，校准为 0.80）",
     )
 
+    # ===== 知识图谱业务跳数与检索上限 =====
+    kg_max_hops: int = Field(
+        default=2,
+        ge=1,
+        le=3,
+        description="业务图谱多跳检索显式跳数上限（默认2跳，最多3跳，防止图爆炸与拓扑发散）",
+    )
+    kg_multihop_limit_per_hop: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        description="知识图谱多跳遍历每跳分支数量上限",
+    )
+    kg_multihop_total_limit: int = Field(
+        default=25,
+        ge=1,
+        le=100,
+        description="知识图谱多跳遍历产出的结构化事实总量上限",
+    )
+
     # ===== Agent 行为开关 =====
     llm_disable_thinking: bool = Field(
         default=True,
         description="关闭 DeepSeek thinking 模式（实测单次调用 2.5x 提速；抽取/分类/融合类任务无需思考链）",
     )
     enable_react_layer: bool = Field(default=True, description="医学知识 Agent 可选 ReAct 多跳层")
+    react_max_tool_calls: int = Field(default=3, ge=1, le=10, description="单次 ReAct 工具调用总数上限")
     text2cypher_enabled: bool = Field(default=True, description="Text2Cypher 只读图谱查询工具开关")
     api_timeout_seconds: int = Field(
         default=180,

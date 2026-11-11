@@ -1,5 +1,6 @@
 """意图识别 Agent：LLM 分类 + Few-shot，输出 intent + confidence。"""
 from config.settings import settings
+from src.agents.emergency_rules import emergency_engine
 from src.agents.safety_checker import EMERGENCY_SYMPTOM_KEYWORDS
 from src.agents.state import AgentState, IntentType
 from src.common.context_window import build_chat_history
@@ -167,8 +168,10 @@ def intent_classifier(state: AgentState) -> dict:
     """意图识别节点（LLM 分类 + 医疗复检门兜底，解析失败降级 general）。"""
     query = state.get("query", "")
 
-    # 急症关键词先行短路（R1 词表唯一来源 safety_checker；安全优先：LLM 误判也有兜底）
-    if any(kw in query for kw in EMERGENCY_SYMPTOM_KEYWORDS):
+    # 急症规则先行短路（基于演示规则与局部否定过滤；安全优先同时过滤误报）
+    emerg_res = emergency_engine.evaluate(query)
+    if emerg_res.is_emergency:
+        logger.info("急症规则引擎命中短路: %s", emerg_res.audit_summary)
         return {"intent": IntentType.EMERGENCY.value, "confidence": 0.99}
 
     try:

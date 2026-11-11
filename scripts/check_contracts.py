@@ -151,7 +151,9 @@ def check_r5() -> None:
     if index_file.exists() and mapping_file.exists():
         import faiss
 
-        index = faiss.read_index(str(index_file))
+        import numpy as np
+
+        index = faiss.deserialize_index(np.frombuffer(index_file.read_bytes(), dtype="uint8"))
         mapping = json.loads(mapping_file.read_text(encoding="utf-8"))
         count = len(mapping.get("entities", []))
         check("R5 FAISS 向量数 == 映射记录数", index.ntotal == count,

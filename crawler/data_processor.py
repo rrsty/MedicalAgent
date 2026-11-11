@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.common.logger import setup_logger
 from src.common.utils import clean_text
+from src.common.provenance import normalize_record_provenance
 
 logger = setup_logger("crawler.processor", "crawler.log")
 
@@ -71,6 +72,7 @@ def clean_record(record: dict) -> dict | None:
         "medications": medications,
         "precautions": clean_text(record.get("precautions"))[:1000],
         "url": record.get("url", ""),
+        "provenance": normalize_record_provenance(record),
     }
 
 

@@ -2,7 +2,7 @@
 
 三段式（企业级终态）：
   Step 1 强制混合检索（模型无法跳过）：FAISS 语义召回 → Neo4j 按实体类型扩展事实；
-  Step 2 可选 ReAct 多跳：create_react_agent 复用 tools.py，单步检索够不到的多跳补充取证
+  Step 2 可选 ReAct 多跳：显式工具调用预算循环复用 tools.py，单步检索够不到的多跳补充取证
         （settings.enable_react_layer 开关，关闭即纯强制检索、更快更省）；
   Step 3 分风险兜底：检索为空时——一般知识题用 LLM 通用知识并标注「非本系统知识库内容」；
         高风险（相互作用/剂量/禁忌/过敏/饮酒）绝不臆测，直接建议咨询医生/药师。
@@ -12,14 +12,14 @@
 """
 import json
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 
 from config.settings import settings
 from src.agents.state import AgentState
 from src.common.context_window import compact_text, format_context_items, format_history_block
 from src.common.llm import get_llm
 from src.common.logger import setup_logger
-from src.common.utils import truncate
+from src.common.provenance import format_context_with_provenance
 from src.knowledge_graph.graph_queries import GraphQueries
 from src.vector_store.search import get_shared_retriever
 
@@ -61,7 +61,6 @@ class MedicalKnowledgeAgent:
 
     def __init__(self):
         self.queries = GraphQueries()
-        self._react_agent = None
 
     # ---------- Step 1 强制混合检索 ----------
     def _retrieve(self, query: str, symptoms: list[str]) -> tuple[list[dict], list[str]]:
@@ -89,49 +88,48 @@ class MedicalKnowledgeAgent:
             except Exception as exc:  # noqa: BLE001
                 logger.debug("症状补充检索失败: %s", exc)
 
-        return entities, contexts
+        return entities, [c if "[数据源:" in c else format_context_with_provenance(c)
+                          for c in contexts]
 
     # ---------- Step 2 可选 ReAct 多跳 ----------
-    def _get_react_agent(self):
-        if self._react_agent is None:
-            from langgraph.prebuilt import create_react_agent
-
-            from src.agents.tools import get_react_tools
-
-            self._react_agent = create_react_agent(get_llm(0.1), tools=get_react_tools())
-        return self._react_agent
-
     def _react_answer(
         self, query: str, contexts: list[str], history: list | None = None
     ) -> tuple[str, list[str], list[str]]:
         """在检索结果之上跑 ReAct；返回 (answer, tool_names, tool_messages_contexts)。"""
-        agent = self._get_react_agent()
+        from src.agents.tools import get_react_tools
+
+        tools = {tool.name: tool for tool in get_react_tools()}
+        model = get_llm(0.1).bind_tools(list(tools.values()))
         system = _REACT_SYSTEM_PROMPT.format(
             contexts=format_context_items(contexts) or "（无）"
         )
         history_block = _history_block(history)
-        res = agent.invoke({
-            "messages": [
-                SystemMessage(content=system),
-                HumanMessage(content=f"{history_block}用户问题：{query}"),
-            ]
-        })
-
-        final_answer = ""
+        messages = [
+            SystemMessage(content=system),
+            HumanMessage(content=f"{history_block}用户问题：{query}"),
+        ]
         tool_names: list[str] = []
         tool_contexts: list[str] = []
-        for message in res["messages"]:
-            if isinstance(message, AIMessage):
-                for tool_call in message.tool_calls or []:
-                    tool_names.append(tool_call.get("name", ""))
-            elif message.type == "tool":
-                content = str(message.content or "").strip()
+        # Count every requested tool, including parallel and repeated calls.
+        # A model may produce a final answer after the last permitted tool.
+        for _ in range(settings.react_max_tool_calls + 1):
+            message = model.invoke(messages)
+            calls = message.tool_calls or []
+            if not calls:
+                return str(message.content or ""), tool_names, tool_contexts
+            if len(tool_names) + len(calls) > settings.react_max_tool_calls:
+                raise RuntimeError("ReAct tool-call budget exhausted; use grounded fallback")
+            messages.append(message)
+            for call in calls:
+                name = call["name"]
+                tool_names.append(name)
+                tool = tools.get(name)
+                content = (str(tool.invoke(call["args"])) if tool
+                           else f"查询失败：未知工具 {name}")
+                messages.append(ToolMessage(content=content, tool_call_id=call["id"]))
                 if content and "查询失败" not in content and "未找到" not in content:
-                    tool_contexts.append(truncate(content, 600))
-        if res["messages"] and isinstance(res["messages"][-1], AIMessage):
-            final_answer = res["messages"][-1].content or ""
-
-        return final_answer, tool_names, tool_contexts
+                    tool_contexts.append(content)
+        raise RuntimeError("ReAct step budget exhausted; use grounded fallback")
 
     # ---------- Step 3 分风险兜底 ----------
     @staticmethod
@@ -203,6 +201,8 @@ class MedicalKnowledgeAgent:
                         answer = self._grounded_static_answer(query, contexts, history)
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("ReAct 层失败，退回纯 grounded 生成: %s", exc)
+                    trace.append({"node": "medical_knowledge", "step": "react_fallback",
+                                  "error_type": type(exc).__name__})
                     answer = self._grounded_static_answer(query, contexts, history)
             else:
                 answer = self._grounded_static_answer(query, contexts, history)

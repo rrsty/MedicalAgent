@@ -66,12 +66,45 @@ def _ensure_limit(cypher: str) -> str:
     return f"{cypher}\nLIMIT {MAX_ROWS}"
 
 
+def _validate_hop_budget(cypher: str) -> str | None:
+    """Conservative subset: bound the sum of relationship lengths in a query.
+
+    Reject procedures, subqueries and path functions rather than claiming this
+    small validator is a general Cypher parser. Complex queries use template tools.
+    """
+    code = re.sub(r"'(?:\\.|''|[^'\\])*'|\"(?:\\.|\"\"|[^\"\\])*\"", "''", cypher)
+    if re.search(r"//|/\*|;|`|\b(CALL|UNION|EXISTS|shortestPath|allShortestPaths|REPEATABLE)\b",
+                 code, re.IGNORECASE):
+        return "查询超出受控路径语法范围，请使用预定义查询工具"
+    edge_pattern = re.compile(r"(?:<-|-)\s*(?:\[([^\]]*)\])?\s*(?:->|-)")
+    total_hops = 0
+    for edge in edge_pattern.finditer(code):
+        spec = edge.group(1) or ""
+        length = 1
+        if "*" in spec:
+            match = re.fullmatch(r"[^*]*\*(\d+)(?:\.\.(\d+))?\s*", spec)
+            if not match:
+                return "拒绝无界或无法验证的可变长度路径"
+            lower = int(match.group(1))
+            length = int(match.group(2) or lower)
+            if lower < 1 or length < lower:
+                return "路径长度范围无效"
+        total_hops += length
+    # Quantified path patterns are outside the accepted legacy relationship syntax.
+    without_edges = edge_pattern.sub("", code)
+    if re.search(r"\{\s*[\d,]|\)\s*[+*]|\]\s*\{", without_edges):
+        return "拒绝无法验证的量化路径"
+    if total_hops > settings.kg_max_hops:
+        return f"查询关系跳数超过配置上限 {settings.kg_max_hops}"
+    return None
+
+
 def run_readonly_cypher(cypher: str, max_rows: int = MAX_ROWS) -> dict:
     """执行只读 Cypher（五层防护），返回 {success, columns, rows, row_count, cypher, error}。"""
     cypher = cypher.strip().rstrip(";")
     try:
         # ② 写关键字拒绝
-        rejected = _validate_readonly(cypher)
+        rejected = _validate_readonly(cypher) or _validate_hop_budget(cypher)
         if rejected:
             logger.warning("[Text2Cypher 审计] 拒绝: %s | %s", rejected, cypher[:200])
             return {"success": False, "error": rejected, "rows": []}

@@ -82,7 +82,7 @@ class SafeStreamingResponse(StreamingResponse):
 
 
 _ANSWER_CACHE_TTL_HOURS = 6
-_SYSTEM_VERSION = "v1"
+_SYSTEM_VERSION = "v2-safety-provenance"
 
 
 def _answer_cache_key(query: str, history: list, model_name: str | None = None) -> str:

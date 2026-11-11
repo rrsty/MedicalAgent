@@ -11,6 +11,7 @@ from langchain_core.tools import tool
 from src.knowledge_graph.graph_queries import GraphQueries
 from src.knowledge_graph.text2cypher import natural_language_query
 from src.vector_store.search import get_shared_retriever
+from src.common.provenance import format_context_with_provenance
 
 _INTERACTION_NOTICE = (
     "本系统未内置完整药物相互作用库，联用风险请以药师/权威数据库为准，切勿自行合用。"
@@ -23,6 +24,14 @@ def search_knowledge_graph(entity: str) -> str:
     当用户问到某疾病的科室、症状、用药、检查，或某症状对应哪些疾病时使用。"""
     try:
         queries = GraphQueries()
+        expansion = queries.expand_multihop(entity)
+        if expansion.get("triples"):
+            return "\n".join(
+                format_context_with_provenance(
+                    f"({t['subject']})-[:{t['predicate']}]->({t['object']})",
+                    t.get("provenance"),
+                ) for t in expansion["triples"]
+            )
         info = queries.get_disease_info(entity)
         if info:
             parts = [f"{info['name']}"]
@@ -36,12 +45,14 @@ def search_knowledge_graph(entity: str) -> str:
                 parts.append("常用药物：" + "、".join(info["medications"][:10]))
             if info.get("examinations"):
                 parts.append("相关检查：" + "、".join(info["examinations"][:8]))
-            return "\n".join(parts)
+            return format_context_with_provenance("\n".join(parts))
 
         # 疾病查不到 → 按症状反查疾病
         diseases = queries.get_diseases_for_symptom(entity, limit=8)
         if diseases:
-            return f"「{entity}」可能提示的疾病：{'、'.join(diseases)}"
+            return format_context_with_provenance(
+                f"「{entity}」可能提示的疾病：{'、'.join(diseases)}"
+            )
         return f"未找到「{entity}」的相关信息"
     except Exception as exc:  # noqa: BLE001
         return f"查询失败：{exc}"
@@ -95,7 +106,7 @@ def get_medication_info(name: str) -> str:
             # 诚实声明：不编造相互作用（医疗安全红线）
             parts.append(f"相互作用：{_INTERACTION_NOTICE}")
         parts.append("提醒：具体用法用量请遵医嘱。")
-        return "\n".join(parts)
+        return format_context_with_provenance("\n".join(parts))
     except Exception as exc:  # noqa: BLE001
         return f"查询失败：{exc}"
 

@@ -17,6 +17,7 @@ from config.paths import INDEX_ENTITY_MAPPING_FILE, INDEX_FILE
 from config.settings import settings
 from src.common.logger import setup_logger
 from src.common.utils import read_json
+from src.common.provenance import format_context_with_provenance
 from src.knowledge_graph.graph_queries import GraphQueries
 
 logger = setup_logger("vector.search", "vector.log")
@@ -49,7 +50,8 @@ class VectorRetriever:
         if not INDEX_FILE.exists():
             logger.warning("FAISS 索引不存在（%s），请先运行 scripts/build_index.py", INDEX_FILE)
             return
-        self._index = faiss.read_index(str(INDEX_FILE))
+        # Native Windows FAISS file APIs cannot reliably open Unicode paths.
+        self._index = faiss.deserialize_index(np.frombuffer(INDEX_FILE.read_bytes(), dtype="uint8"))
         self._index.nprobe = settings.faiss_nprobe
         if INDEX_ENTITY_MAPPING_FILE.exists():
             data = read_json(INDEX_ENTITY_MAPPING_FILE)
@@ -158,7 +160,18 @@ class VectorRetriever:
             seen.add(key)
             desc = (entity.get("description") or "").strip()
             if desc:
-                contexts.append(f"{entity['name']}（{entity['type']}）：{desc}")
+                contexts.append(format_context_with_provenance(
+                    f"{entity['name']}（{entity['type']}）：{desc}", entity.get("provenance")
+                ))
+
+            expansion = queries.expand_multihop(
+                entity.get("name", ""), entity_type=entity.get("type")
+            )
+            for triple in expansion.get("triples", []):
+                contexts.append(format_context_with_provenance(
+                    f"({triple['subject']})-[:{triple['predicate']}]->({triple['object']})",
+                    triple.get("provenance"),
+                ))
 
             facts = queries.expand_entity(entity.get("name", ""))
             fact_map = facts.get("facts", {})
@@ -197,6 +210,8 @@ class VectorRetriever:
                 if parts:
                     contexts.append(f"{entity['name']}（药物）：{ '；'.join(parts) }")
 
+        contexts = [c if "[数据源:" in c else format_context_with_provenance(c)
+                    for c in contexts]
         return {"entities": entities, "contexts": contexts}
 
     # ---------- 启动期预热（防 Windows arrow.dll 原生崩溃）----------

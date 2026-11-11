@@ -80,7 +80,7 @@ def main() -> None:
     # 4. 保存
     print("[4/4] 保存索引与映射...")
     INDEX_FILE.parent.mkdir(parents=True, exist_ok=True)
-    faiss.write_index(index, str(INDEX_FILE))
+    INDEX_FILE.write_bytes(faiss.serialize_index(index).tobytes())
     write_json(
         INDEX_ENTITY_MAPPING_FILE,
         {
@@ -89,6 +89,7 @@ def main() -> None:
                     "name": e.get("name", ""),
                     "type": e.get("type", ""),
                     "description": e.get("description", ""),
+                    "provenance": e.get("provenance", []),
                 }
                 for e in entities
             ],

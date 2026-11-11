@@ -56,6 +56,7 @@ CHECKPOINT_FILE = RAW_DIR / "crawled_urls.json"
 
 class MedicalCrawler:
     def __init__(self, site: str = "haodf", delay: tuple[float, float] = (3.0, 5.0)):
+        self.site_id = site
         self.site = SITES[site]
         self.delay = delay
         self.session = requests.Session()
@@ -66,7 +67,9 @@ class MedicalCrawler:
 
     # ---------- robots.txt 合规（RFC 9309 / Google 规范：最长匹配优先，平局 Allow 胜）----------
     def _load_robots(self) -> None:
-        text = self._get(self.site["robots"], max_retries=1) or ""
+        text = self._get(self.site["robots"], max_retries=1)
+        if text is None:
+            raise RuntimeError("robots.txt unavailable; permission is unverified")
         self._robots_rules: list[tuple[bool, str]] = []
         agent_block = False
         for raw_line in text.splitlines():
@@ -214,15 +217,21 @@ class MedicalCrawler:
                 continue
 
             logger.info("[%d/%d] 爬取: %s | %s", i, len(targets), name, url)
+            self._sleep()
             record = self._parse_detail(url, name)
             if record and record["description"]:
+                from src.common.provenance import SourceProvenance
+
+                record["provenance"] = SourceProvenance.create_for_crawler(
+                    url, platform=self.site_id, robots_allowed=True,
+                    rate_limit_applied=self.delay[0] > 0,
+                ).to_dict()
                 records.append(record)
                 self.crawled[url] = record["name"]
             else:
                 logger.warning("爬取失败或内容为空: %s", name)
 
             self._save_checkpoint()
-            self._sleep()
 
         self._merge_and_save(records)
         return records

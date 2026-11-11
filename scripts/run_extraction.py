@@ -20,6 +20,7 @@ from config.paths import (
 )
 from src.common.logger import setup_logger
 from src.common.utils import read_json, write_json
+from src.common.provenance import merge_provenance_records, normalize_record_provenance
 from src.extraction.disease_extractor import DiseaseExtractor, build_input_text
 from src.extraction.schemas import SimpleLLMOutput
 
@@ -29,7 +30,7 @@ CHECKPOINT_FILE = Path(__file__).resolve().parents[1] / "data" / "knowledge_grap
 
 
 # ---------- 序列化（entities.json / relations.json 契约）----------
-def serialize(result: SimpleLLMOutput) -> tuple[list[dict], list[dict]]:
+def serialize(result: SimpleLLMOutput, provenance=None) -> tuple[list[dict], list[dict]]:
     entities: list[dict] = []
     relations: list[dict] = []
 
@@ -70,6 +71,8 @@ def serialize(result: SimpleLLMOutput) -> tuple[list[dict], list[dict]]:
             "type": "AFFECTS_BODY_PART",
             "data": {"disease_name": disease_name, "body_part_name": body_part},
         })
+    for item in [*entities, *relations]:
+        item["provenance"] = merge_provenance_records(provenance)
     return entities, relations
 
 
@@ -121,6 +124,12 @@ def main() -> None:
         if not name:
             continue
         if name in done:
+            # Old checkpoints may predate provenance. Reattach the recorded source
+            # rather than silently dropping it on resumed runs.
+            for item in done[name]["entities"] + done[name]["relations"]:
+                item["provenance"] = merge_provenance_records(
+                    item.get("provenance"), normalize_record_provenance(disease)
+                )
             all_entities.extend(done[name]["entities"])
             all_relations.extend(done[name]["relations"])
             continue
@@ -145,7 +154,7 @@ def main() -> None:
                     else:
                         raise
 
-            entities, relations = serialize(result)
+            entities, relations = serialize(result, normalize_record_provenance(disease))
             all_entities.extend(entities)
             all_relations.extend(relations)
             done[name] = {"entities": entities, "relations": relations}
@@ -160,6 +169,9 @@ def main() -> None:
     for entity in all_entities:
         key = (entity["type"], entity["name"])
         if key in merged:
+            merged[key]["provenance"] = merge_provenance_records(
+                merged[key].get("provenance"), entity.get("provenance")
+            )
             for k, v in entity.items():
                 if v and not merged[key].get(k):
                     merged[key][k] = v

@@ -1,7 +1,7 @@
 """症状检测 Agent：纯 LLM 结构化输出，单一职责（同义词归一属检索层实体链接职责）。"""
 from pydantic import BaseModel, Field, field_validator
 
-from src.agents.safety_checker import EMERGENCY_SYMPTOM_KEYWORDS
+from src.agents.emergency_rules import emergency_engine
 from src.common.utils import coerce_str_list
 from src.common.context_window import format_history_block
 from src.agents.state import AgentState, Severity
@@ -50,7 +50,7 @@ def symptom_detector(state: AgentState) -> dict:
     query = state.get("query", "")
     history = state.get("history", [])
 
-    keyword_hit = any(kw in query for kw in EMERGENCY_SYMPTOM_KEYWORDS)
+    keyword_hit = emergency_engine.evaluate(query).is_emergency
     try:
         # 多轮上下文：最近 3 轮（6 条消息），供指代消解与症状补全（PRD US9 / t01）
         context_block = format_history_block(
@@ -88,7 +88,8 @@ def symptom_detector(state: AgentState) -> dict:
             severity = Severity.EMERGENCY.value
     except Exception as exc:  # noqa: BLE001
         logger.warning("症状检测 LLM 失败: %s", exc)
-        symptoms, severity = [], Severity.LOW.value
+        symptoms = []
+        severity = Severity.EMERGENCY.value if keyword_hit else Severity.LOW.value
 
     logger.info("症状检测: symptoms=%s severity=%s", symptoms, severity)
     return {"symptoms": symptoms, "severity": severity}

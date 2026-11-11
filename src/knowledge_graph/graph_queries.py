@@ -3,6 +3,8 @@
 约定：所有方法查询失败返回空结果并记日志（绝不抛异常打断 Agent 主流程）；
 关系反查用 Cypher 反向遍历（R6）。
 """
+from config.settings import settings
+from src.common.provenance import decode_provenance
 from src.common.logger import setup_logger
 from src.knowledge_graph.schema_manager import get_driver
 
@@ -284,6 +286,101 @@ class GraphQueries:
         except Exception as exc:  # noqa: BLE001
             logger.error("expand_entity(%s) 失败: %s", name, exc)
             return {}
+
+    def expand_multihop(
+        self, name: str, max_hops: int | None = None,
+        limit_per_hop: int | None = None, total_limit: int | None = None,
+        entity_type: str | None = None,
+    ) -> dict:
+        """Bounded breadth-first expansion, preserving actual relationship direction.
+
+        Node identity is elementId, not its display name. Limits apply to the
+        entire frontier at each depth; explicit arguments cannot raise config caps.
+        """
+        def bounded(value, cap):
+            if value is not None and (not isinstance(value, int) or value < 1):
+                raise ValueError("graph traversal limits must be positive integers")
+            return min(value if value is not None else cap, cap)
+
+        hops = bounded(max_hops, min(settings.kg_max_hops, 3))
+        per_hop = bounded(limit_per_hop, settings.kg_multihop_limit_per_hop)
+        total = bounded(total_limit, settings.kg_multihop_total_limit)
+        result = {
+            "root_entity": name, "configured_max_hops": settings.kg_max_hops,
+            "applied_hops": hops, "executed_hops": 0, "total_triples": 0,
+            "hop1_count": 0, "hop2_count": 0, "hop3_count": 0,
+            "triples": [], "visited_entities": [name],
+            "provenance": {"source_platform": "unknown", "medical_reviewed": False,
+                           "evidence_grade": "unverified"},
+        }
+        visited_ids, edge_ids, visited_names = set(), set(), {name}
+        frontier = []
+        try:
+            from neo4j import READ_ACCESS
+
+            with get_driver().session(default_access_mode=READ_ACCESS) as session:
+                for hop in range(1, hops + 1):
+                    remaining = total - len(result["triples"])
+                    if remaining <= 0:
+                        break
+                    records = session.run(
+                        """
+                        MATCH (mid)-[r]-(target)
+                        WHERE (($first AND mid.name = $name
+                                AND ($entity_type IS NULL OR $entity_type IN labels(mid)))
+                            OR (NOT $first AND elementId(mid) IN $frontier))
+                          AND NOT elementId(target) IN $visited
+                        WITH mid, r, target, startNode(r) AS src, endNode(r) AS tgt
+                        RETURN elementId(mid) AS mid_id,
+                               elementId(target) AS target_id,
+                               coalesce(target.name, target.content) AS target_name,
+                               elementId(r) AS edge_id,
+                               labels(src)[0] AS src_type,
+                               coalesce(src.name, src.content) AS src_name,
+                               type(r) AS rel, labels(tgt)[0] AS tgt_type,
+                               coalesce(tgt.name, tgt.content) AS tgt_name,
+                               coalesce(r.provenance_records, r.provenance_json) AS provenance_json,
+                               coalesce(src.provenance_records, src.provenance_json) AS source_provenance_json,
+                               coalesce(tgt.provenance_records, tgt.provenance_json) AS target_provenance_json
+                        ORDER BY src_type, src_name, rel, tgt_type, tgt_name, edge_id
+                        LIMIT $limit
+                        """,
+                        first=hop == 1, name=name, entity_type=entity_type,
+                        frontier=frontier, visited=sorted(visited_ids),
+                        limit=min(per_hop, remaining),
+                    )
+                    next_frontier = set()
+                    for record in records:
+                        edge_id = record["edge_id"]
+                        if edge_id in edge_ids:
+                            continue
+                        edge_ids.add(edge_id)
+                        visited_ids.add(record["mid_id"])
+                        visited_names.add(record["target_name"])
+                        next_frontier.add(record["target_id"])
+                        result["triples"].append({
+                            "subject": record["src_name"], "subject_type": record["src_type"],
+                            "predicate": record["rel"], "object": record["tgt_name"],
+                            "object_type": record["tgt_type"], "hop": hop,
+                            # A node's source is not evidence for every incident
+                            # edge. Only recorded relationship sources support it.
+                            "provenance": decode_provenance(record.get("provenance_json")),
+                        })
+                        result[f"hop{hop}_count"] += 1
+                    result["executed_hops"] = hop
+                    visited_ids.update(next_frontier)
+                    frontier = sorted(next_frontier)
+                    if not frontier:
+                        break
+            result["total_triples"] = len(result["triples"])
+            result["visited_entities"] = sorted(n for n in visited_names if n)
+            return result
+        except Exception as exc:
+            logger.error("expand_multihop(%s) failed: %s", name, exc)
+            # Do not expose partial traversal as a complete successful result.
+            result.update(triples=[], total_triples=0, hop1_count=0, hop2_count=0,
+                          hop3_count=0, error=str(exc))
+            return result
 
     # ---------- 统计 ----------
     def get_stats(self) -> dict:

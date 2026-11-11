@@ -7,6 +7,7 @@
 """
 import sys
 import time
+import json
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -16,6 +17,7 @@ from tqdm import tqdm
 from config.paths import KG_ENTITIES_FILE, KG_RELATIONS_FILE
 from src.common.logger import setup_logger
 from src.common.utils import read_json
+from src.common.provenance import decode_provenance
 from src.knowledge_graph.schema import (
     NODE_PROPERTIES,
     RELATION_DATA_FIELDS,
@@ -34,6 +36,15 @@ from src.knowledge_graph.schema_manager import (
 logger = setup_logger("kg.builder", "neo4j.log")
 
 BATCH_SIZE = 500  # 每 500 条提交一次事务
+_MERGE_PROVENANCE = (
+    "SET n.provenance_records = reduce(acc = coalesce(n.provenance_records, []), "
+    "item IN $provenance_records | CASE WHEN item IN acc THEN acc ELSE acc + item END) "
+)
+
+
+def _source_records(item: dict) -> list[str]:
+    return [json.dumps(p, ensure_ascii=False, sort_keys=True)
+            for p in decode_provenance(item.get("provenance"))]
 
 
 class KnowledgeGraphBuilder:
@@ -62,8 +73,10 @@ class KnowledgeGraphBuilder:
                             if not content:
                                 continue
                             tx.run(
-                                "MERGE (n:Precaution {content: $content}) RETURN n.content",
+                                "MERGE (n:Precaution {content: $content}) "
+                                + _MERGE_PROVENANCE + "RETURN n.content",
                                 content=content,
+                                provenance_records=_source_records(entity),
                             )
                             created += 1
                             continue
@@ -83,7 +96,8 @@ class KnowledgeGraphBuilder:
                             f"MERGE (n:{node_type} {{name: $name}}) "
                             + (f"ON CREATE SET {set_clause} " if set_clause else "")
                             + (f"ON MATCH SET {set_clause} " if set_clause else "")
-                            + "RETURN n.name",
+                            + _MERGE_PROVENANCE + "RETURN n.name",
+                            provenance_records=_source_records(entity),
                             **props,
                         )
                         created += 1
@@ -115,10 +129,12 @@ class KnowledgeGraphBuilder:
                             f"""
                             MATCH (a:{start_type.value} {{name: $start_name}})
                             MATCH (b:{end_type.value} {{name: $end_name}})
-                            MERGE (a)-[:{rel_type}]->(b)
+                            MERGE (a)-[n:{rel_type}]->(b)
+                            {_MERGE_PROVENANCE}
                             RETURN 1
                             """,
                             start_name=start_name, end_name=end_name,
+                            provenance_records=_source_records(rel),
                         ).single()
                         if n is None:
                             skipped += 1
@@ -131,9 +147,11 @@ class KnowledgeGraphBuilder:
                                 f"""
                                 MATCH (a:{start_type.value} {{name: $start_name}})
                                 MATCH (b:{end_type.value} {{name: $end_name}})
-                                MERGE (b)-[:{reverse_type.value}]->(a)
+                                MERGE (b)-[n:{reverse_type.value}]->(a)
+                                {_MERGE_PROVENANCE}
                                 """,
                                 start_name=start_name, end_name=end_name,
+                                provenance_records=_source_records(rel),
                             )
         if skipped:
             logger.warning("跳过 %d 条无法落库的关系（端点缺失或类型未知）", skipped)

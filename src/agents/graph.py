@@ -56,9 +56,7 @@ def route_by_intent(state: AgentState) -> str:
     intent = state.get("intent", IntentType.GENERAL.value)
     query = state.get("query", "")
 
-    if intent != IntentType.EMERGENCY.value and any(
-        kw in query for kw in EMERGENCY_SYMPTOM_KEYWORDS
-    ):
+    if intent != IntentType.EMERGENCY.value and SafetyCheckerAgent.has_emergency_symptoms([], query):
         logger.warning("急症强制升级门触发（intent=%s）: %s", intent, query[:50])
         return "safety_checker"
 
