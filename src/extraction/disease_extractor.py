@@ -46,7 +46,7 @@ EXTRACTION_INSTRUCTION = """你是一个专业的医疗信息抽取助手。请�
 # 要求部分（云端分支的 system 消息；instruction 去掉 JSON schema 段）
 _INSTRUCTION_REQUIREMENTS = EXTRACTION_INSTRUCTION.split("请以 JSON 格式输出")[0].strip()
 # JSON schema 段（云端分支拼进 user 消息）
-_OUTPUT_SCHEMA_TEXT = "请以 JSON 格式输出，包含以下字段：" + EXTRACTION_INSTRUCTION.split(
+_OUTPUT_SCHEMA_TEXT = "请以 JSON 格式输出" + EXTRACTION_INSTRUCTION.split(
     "请以 JSON 格式输出", 1
 )[1]
 

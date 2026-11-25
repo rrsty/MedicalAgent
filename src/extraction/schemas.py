@@ -47,12 +47,19 @@ class SimpleLLMOutput(BaseModel):
     }
 
     def clean(self) -> "SimpleLLMOutput":
-        """过滤占位符回声与空串（统一后处理，云端/vLLM 两条链共用）。"""
+        """过滤占位符回声、空串与重复项（统一后处理，云端/vLLM 两条链共用）。"""
         def _clean_list(items: list[str]) -> list[str]:
-            return [
+            return list(dict.fromkeys(
                 item.strip() for item in items
                 if item and item.strip() and item.strip() not in self.PLACEHOLDER_ECHOES
-            ]
+            ))
+
+        if self.disease.name and self.disease.name.strip() in self.PLACEHOLDER_ECHOES:
+            self.disease.name = ""
+        else:
+            self.disease.name = (self.disease.name or "").strip()
+        if self.disease.description and self.disease.description.strip() in self.PLACEHOLDER_ECHOES:
+            self.disease.description = None
 
         self.symptoms = _clean_list(self.symptoms)
         self.medications = _clean_list(self.medications)
@@ -78,6 +85,11 @@ class MedicationEntity(BaseModel):
     side_effects: list[str] = Field(default_factory=list, description="副作用列表")
     contraindications: list[str] = Field(default_factory=list, description="禁忌症列表")
 
+    @field_validator("side_effects", "contraindications", mode="before")
+    @classmethod
+    def _coerce_lists(cls, v):
+        return coerce_str_list(v)
+
 
 class DepartmentEntity(BaseModel):
     """科室实体。"""
@@ -92,6 +104,11 @@ class SymptomExtractionResult(BaseModel):
     symptoms: list[SymptomEntity] = Field(default_factory=list, description="症状列表")
     possible_diseases: list[str] = Field(default_factory=list, description="可能相关的疾病")
 
+    @field_validator("possible_diseases", mode="before")
+    @classmethod
+    def _coerce_possible_diseases(cls, v):
+        return coerce_str_list(v)
+
 
 class DrugExtractionResult(BaseModel):
     """药物抽取器输出。"""
@@ -99,9 +116,19 @@ class DrugExtractionResult(BaseModel):
     medications: list[MedicationEntity] = Field(default_factory=list, description="药物列表")
     treats_diseases: list[str] = Field(default_factory=list, description="适应症疾病")
 
+    @field_validator("treats_diseases", mode="before")
+    @classmethod
+    def _coerce_treats_diseases(cls, v):
+        return coerce_str_list(v)
+
 
 class DepartmentExtractionResult(BaseModel):
     """科室抽取器输出。"""
 
     departments: list[DepartmentEntity] = Field(default_factory=list, description="科室列表")
     handles_diseases: list[str] = Field(default_factory=list, description="诊治疾病")
+
+    @field_validator("handles_diseases", mode="before")
+    @classmethod
+    def _coerce_handles_diseases(cls, v):
+        return coerce_str_list(v)

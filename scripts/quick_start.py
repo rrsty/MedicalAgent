@@ -30,7 +30,6 @@ DOCKER_DESKTOP_CANDIDATES = [
     Path(r"C:\Program Files\Docker\Docker\Docker Desktop.exe"),
     Path(r"C:\Program Files\Docker\Docker\frontend\Docker Desktop.exe"),
     Path(os.path.expandvars(r"%LOCALAPPDATA%\Programs\DockerDesktop\Docker Desktop.exe")),
-    Path(r"C:\Users\rsty\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe"),
 ]
 
 SERVICES = ("neo4j", "redis", "mysql")
@@ -75,8 +74,13 @@ def _services_healthy() -> bool:
             capture_output=True, text=True, timeout=15, cwd=PROJECT_ROOT, shell=False,
         ).stdout
         return all(
-            any(line.startswith(name) and ("Up" in line or "healthy" in line)
-                for line in out.splitlines())
+            any(
+                line.startswith(name)
+                and "Up" in line
+                and "starting" not in line.lower()
+                and "unhealthy" not in line.lower()
+                for line in out.splitlines()
+            )
             for name in SERVICES
         )
     except Exception:  # noqa: BLE001
@@ -99,10 +103,6 @@ def ensure_data() -> None:
     step("步骤 2/4：数据链路（种子/图谱/向量索引，缺失才构建）")
     from config.paths import INDEX_FILE, KG_ENTITIES_FILE, PROCESSED_DISEASES_JSON
 
-    if INDEX_FILE.exists():
-        print("  ✅ FAISS 索引已存在，跳过数据构建")
-        return
-
     # 实体数据：种子（仅当处理数据与实体都缺失时，避免覆盖真实管线产物）
     if not KG_ENTITIES_FILE.exists():
         if not PROCESSED_DISEASES_JSON.exists():
@@ -118,7 +118,7 @@ def ensure_data() -> None:
     else:
         print("  ✅ 实体数据已存在")
 
-    # Neo4j 建图（仅在图为空时执行；MERGE 幂等）
+    # Neo4j 建图（即使 FAISS 索引已存在也校验 Neo4j 非空，避免删卷后以空图谱启动）
     from src.knowledge_graph.graph_queries import GraphQueries
     from src.knowledge_graph.schema_manager import close_driver, verify_connectivity
 
@@ -138,11 +138,14 @@ def ensure_data() -> None:
             read_json(_E).get("entities", []),
             read_json(_R).get("relations", []),
         )
-        builder_close = close_driver
-        builder_close()
+        close_driver()
         print("  ✅ 知识图谱构建完成")
     else:
         print(f"  ✅ 知识图谱已存在（{stats['total_nodes']} 节点），跳过建图")
+
+    if INDEX_FILE.exists():
+        print("  ✅ FAISS 索引已存在，跳过索引构建")
+        return
 
     # FAISS 索引（依赖 models/bge-m3；模型缺失时自动从 HuggingFace 拉取）
     from config.settings import settings

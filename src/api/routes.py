@@ -118,6 +118,31 @@ def _answer_cache_key(query: str, history: list, model_name: str | None = None) 
 _exact_answer_cache_key = _answer_cache_key
 
 
+_DEGRADED_ANSWER_MARKERS = (
+    "抱歉，暂时无法处理您的问题",
+    "抱歉，本系统暂时无法回答该问题",
+    "（回答生成暂时不可用",
+    "服务暂时不可用",
+)
+
+
+def _is_cacheable_response(response: ConsultationResponse) -> bool:
+    """仅缓存正常生成且非降级报错兜底的回答，避免 LLM 瞬时故障污染 6h 全局缓存。"""
+    answer = (response.answer or "").strip()
+    if not answer:
+        return False
+    return not any(marker in answer for marker in _DEGRADED_ANSWER_MARKERS)
+
+
+def _save_turn(
+    sid: str, query: str, answer: str, intent: str, request_id: str | None = None
+) -> bool:
+    """统一封装历史落库：仅在显式提供 request_id 时透传幂等键，保持与既有测试签名兼容。"""
+    if request_id is not None:
+        return history_store.save_turn(sid, query, answer, intent, request_id=request_id)
+    return history_store.save_turn(sid, query, answer, intent)
+
+
 def _serialize_cache_payload(response: ConsultationResponse) -> str:
     """序列化可复用答案载荷（剥离 session_id 与 duration_ms）。"""
     data = response.model_dump(exclude={"session_id", "duration_ms"})
@@ -199,8 +224,9 @@ async def _process_consult(request: ConsultationRequest) -> ConsultationResponse
                 logger.info("consult 缓存命中 session=%s (%dms)", request.session_id, cached_resp.duration_ms)
                 try:
                     await asyncio.to_thread(
-                        history_store.save_turn,
+                        _save_turn,
                         request.session_id, request.query, cached_resp.answer, cached_resp.intent,
+                        request.request_id,
                     )
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("缓存命中保存历史失败: %s", exc)
@@ -231,8 +257,8 @@ async def _process_consult(request: ConsultationRequest) -> ConsultationResponse
     duration_ms = int((time.monotonic() - start_mono) * 1000)
     response = _state_to_response(state, request.session_id, duration_ms)
 
-    # 4. 回填缓存（脱敏 session_id）与双写历史
-    if response.answer:
+    # 4. 回填缓存（脱敏 session_id，跳过降级错误文案）与双写历史
+    if _is_cacheable_response(response):
         payload_str = _serialize_cache_payload(response)
         try:
             await asyncio.to_thread(
@@ -243,8 +269,9 @@ async def _process_consult(request: ConsultationRequest) -> ConsultationResponse
 
     try:
         await asyncio.to_thread(
-            history_store.save_turn,
+            _save_turn,
             request.session_id, request.query, response.answer, response.intent,
+            request.request_id,
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("历史记录保存失败: %s", exc)
@@ -339,8 +366,9 @@ async def consult_stream(
                     cached_resp = _deserialize_cache_payload(cached_raw, actual_body.session_id, duration_ms)
                     try:
                         await asyncio.to_thread(
-                            history_store.save_turn,
+                            _save_turn,
                             actual_body.session_id, actual_body.query, cached_resp.answer, cached_resp.intent,
+                            actual_body.request_id,
                         )
                     except Exception as exc:  # noqa: BLE001
                         logger.warning("缓存命中保存历史失败: %s", exc)
@@ -434,8 +462,8 @@ async def consult_stream(
             duration_ms = int((time.monotonic() - start_mono) * 1000)
             response = _state_to_response(final_state, actual_body.session_id, duration_ms)
 
-            # 对齐普通接口：成功生成后回填答案缓存！
-            if response.answer:
+            # 对齐普通接口：成功生成且非降级错误时回填答案缓存
+            if _is_cacheable_response(response):
                 payload_str = _serialize_cache_payload(response)
                 try:
                     await asyncio.to_thread(
@@ -446,8 +474,9 @@ async def consult_stream(
 
             try:
                 await asyncio.to_thread(
-                    history_store.save_turn,
+                    _save_turn,
                     actual_body.session_id, actual_body.query, response.answer, response.intent,
+                    actual_body.request_id,
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.warning("SSE 历史记录保存失败: %s", exc)

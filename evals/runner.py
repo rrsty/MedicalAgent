@@ -364,6 +364,7 @@ def aggregate(results: list[dict]) -> dict:
             "failed_count": 0,
             "success_rate": 0.0,
             "disclaimer_coverage": 0.0,
+            "emergency_cases": 0,
             "emergency_recall": 0.0,
             "emergency_false_alarm": 0.0,
             "intent_accuracy": 0.0,
@@ -412,7 +413,8 @@ def aggregate(results: list[dict]) -> dict:
         errors_by_type[err_type] = errors_by_type.get(err_type, 0) + 1
 
     def avg(key):
-        vals = [r[key] for r in success_results if r.get(key) is not None]
+        # 包含失败用例已显式置 0.0 的指标（_build_error_sample），防止异常样本被剔除后虚高均值
+        vals = [r[key] for r in results if r.get(key) is not None]
         return sum(vals) / len(vals) if vals else None
 
     ragas_vals = [r["ragas"] for r in success_results if r.get("ragas")]
@@ -437,7 +439,8 @@ def aggregate(results: list[dict]) -> dict:
     intent_acc = sum(1 for r in results if r.get("intent_ok") and not r.get("error")) / n
     disclaimer_cov = sum(1 for r in results if r.get("disclaimer_ok") and not r.get("error")) / n
 
-    # 急症指标：以包含 gold_emergency 的总样本作为分母，异常用例不虚高召回率
+    # 急症指标：以包含 gold_emergency 的总样本作为分母，异常用例不虚高召回率；
+    # 若子集完全未包含急症用例（如 --limit 10），不虚标 1.0，显式记 0.0 防止门禁误绿
     gold_emergency_cases = [r for r in results if r.get("gold_emergency")]
     if gold_emergency_cases:
         emergency_recall = (
@@ -447,7 +450,7 @@ def aggregate(results: list[dict]) -> dict:
             ) / len(gold_emergency_cases)
         )
     else:
-        emergency_recall = 1.0 if n > 0 else 0.0
+        emergency_recall = 0.0
 
     gold_calm_cases = [r for r in results if not r.get("gold_emergency")]
     if gold_calm_cases:
@@ -478,6 +481,7 @@ def aggregate(results: list[dict]) -> dict:
         "failed_count": failed_count,
         "success_rate": success_rate,
         "disclaimer_coverage": round(disclaimer_cov, 4),
+        "emergency_cases": len(gold_emergency_cases),
         "emergency_recall": round(min(emergency_recall, 1.0), 4),
         "emergency_false_alarm": round(emergency_false_alarm, 4),
         "intent_accuracy": round(intent_acc, 4),

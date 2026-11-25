@@ -275,7 +275,7 @@ def cache_get(key: str) -> str | None:
 
 def cache_set(key: str, value: str, ttl_hours: int = 24) -> None:
     try:
-        _get_redis().setex(key, int(timedelta(hours=ttl_hours).total_seconds()), value)
+        _get_redis().set(key, value, ex=int(timedelta(hours=ttl_hours).total_seconds()))
     except Exception as exc:  # noqa: BLE001
         logger.debug("cache_set 失败（降级）: %s", exc)
 

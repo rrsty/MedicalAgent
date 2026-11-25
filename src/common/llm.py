@@ -14,16 +14,29 @@ from src.common.logger import setup_logger
 logger = setup_logger("common.llm", "llm.log")
 
 
+def _thinking_extra_body(base_url: str, disable_thinking: bool) -> dict | None:
+    """按不同 OpenAI 兼容服务商协议返回关闭思考模式的 extra_body，避免非兼容端点 HTTP 400。"""
+    if not disable_thinking:
+        return None
+    url = (base_url or "").lower()
+    if "dashscope.aliyuncs.com" in url:
+        return {"enable_thinking": False}
+    if any(host in url for host in ("volces.com", "ark.", "deepseek")):
+        return {"thinking": {"type": "disabled"}}
+    return None
+
+
 @lru_cache
 def get_llm(temperature: float = 0.7) -> ChatOpenAI:
     """返回主 LLM 实例（按 temperature 分别缓存）。
 
     extra_body 在构造参数层传入（而非 .bind()），保证 .with_structured_output()
-    与 .bind_tools() 仍可直接调用；关闭 thinking 实测单次调用提速约 2.5 倍。
+    与 .bind_tools() 仍可直接调用；按服务商协议自适应关闭 thinking 模式。
     """
     kwargs = {}
-    if settings.llm_disable_thinking:
-        kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
+    extra_body = _thinking_extra_body(settings.model_base_url, settings.llm_disable_thinking)
+    if extra_body:
+        kwargs["extra_body"] = extra_body
     return ChatOpenAI(
         api_key=settings.model_api_key,
         base_url=settings.model_base_url,

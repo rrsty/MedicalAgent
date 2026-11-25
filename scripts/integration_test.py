@@ -48,7 +48,7 @@ def run(base_url: str) -> int:
     # 0. 契约门禁（R1/R3/R4/R5，先于一切端到端检查）
     contract = subprocess.run(
         [sys.executable, str(PROJECT_ROOT / "scripts" / "check_contracts.py")],
-        capture_output=True, text=True,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     check("契约门禁 check_contracts.py", contract.returncode == 0,
           contract.stdout.strip().splitlines()[-1] if contract.stdout else "")

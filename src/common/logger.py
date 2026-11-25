@@ -7,10 +7,11 @@ from config.settings import settings
 
 _FORMAT = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 _CONFIGURED = set()
+_FILE_HANDLERS: dict = {}
 
 
 def setup_logger(name: str, log_file: str | None = None) -> logging.Logger:
-    """获取统一格式的 logger；重复调用返回同一实例（幂等）。"""
+    """获取统一格式的 logger；重复调用返回同一实例，同名日志文件共享单个 handler 防 Windows 轮转锁冲突。"""
     logger = logging.getLogger(name)
     if name in _CONFIGURED:
         return logger
@@ -25,11 +26,15 @@ def setup_logger(name: str, log_file: str | None = None) -> logging.Logger:
 
     if log_file:
         LOGS_DIR.mkdir(parents=True, exist_ok=True)
-        file_handler = RotatingFileHandler(
-            LOGS_DIR / log_file, maxBytes=10 * 1024 * 1024,
-            backupCount=5, encoding="utf-8",
-        )
-        file_handler.setFormatter(formatter)
+        resolved = (LOGS_DIR / log_file).resolve()
+        file_handler = _FILE_HANDLERS.get(resolved)
+        if file_handler is None:
+            file_handler = RotatingFileHandler(
+                resolved, maxBytes=10 * 1024 * 1024,
+                backupCount=5, encoding="utf-8",
+            )
+            file_handler.setFormatter(formatter)
+            _FILE_HANDLERS[resolved] = file_handler
         logger.addHandler(file_handler)
 
     logger.propagate = False

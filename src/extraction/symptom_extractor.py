@@ -1,5 +1,5 @@
 """症状实体抽取器：纯 LLM 结构化输出，单一职责（同义词归一属检索层职责）。"""
-from src.common.llm import get_llm
+from src.common.llm import get_extract_llm
 from src.common.logger import setup_logger
 from src.extraction.schemas import SymptomExtractionResult
 
@@ -14,14 +14,15 @@ SYSTEM_PROMPT = """你是一个专业的医疗信息抽取助手。请从用户�
 4. 如果能推断，列出可能相关的疾病
 5. 没有相关信息时返回空列表
 
-以 JSON 格式输出结果"""
+以 JSON 格式输出结果：
+{"symptoms": [{"name": "症状名", "severity": "轻度/中度/重度或null"}], "possible_diseases": ["疾病名"]}"""
 
 
 class SymptomExtractor:
     """症状实体抽取器。"""
 
     def __init__(self, temperature: float = 0):
-        self.llm = get_llm(temperature).with_structured_output(
+        self.llm = get_extract_llm(temperature).with_structured_output(
             SymptomExtractionResult, method="json_mode"
         )
 

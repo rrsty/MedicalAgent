@@ -2,7 +2,7 @@
 
 不编造原则：模型不知道的属性返回空（医疗安全红线）。
 """
-from src.common.llm import get_llm
+from src.common.llm import get_extract_llm
 from src.common.logger import setup_logger
 from src.extraction.schemas import DrugExtractionResult
 
@@ -17,14 +17,15 @@ SYSTEM_PROMPT = """你是一个专业的药学信息抽取助手。请从文本�
 4. 不确定的信息宁可不填，绝不编造
 5. 没有相关信息时返回空列表
 
-以 JSON 格式输出结果"""
+以 JSON 格式输出结果：
+{"medications": [{"name": "通用名", "category": "类别或null", "side_effects": [], "contraindications": []}], "treats_diseases": ["疾病名"]}"""
 
 
 class DrugExtractor:
     """药物实体抽取器。"""
 
     def __init__(self, temperature: float = 0):
-        self.llm = get_llm(temperature).with_structured_output(
+        self.llm = get_extract_llm(temperature).with_structured_output(
             DrugExtractionResult, method="json_mode"
         )
 
