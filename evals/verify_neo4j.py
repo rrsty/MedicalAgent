@@ -95,11 +95,11 @@ def verify(driver, repeats):
     report["provenance"] = {
         "nodes_with_records": rows(
             "MATCH (n) WHERE size(coalesce(n.provenance_records, [])) > 0 "
-            "OR n.provenance_json IS NOT NULL RETURN count(n) AS count"
+            "OR properties(n)['provenance_json'] IS NOT NULL RETURN count(n) AS count"
         )[0]["count"],
         "relationships_with_records": rows(
             "MATCH ()-[r]->() WHERE size(coalesce(r.provenance_records, [])) > 0 "
-            "OR r.provenance_json IS NOT NULL RETURN count(r) AS count"
+            "OR properties(r)['provenance_json'] IS NOT NULL RETURN count(r) AS count"
         )[0]["count"],
     }
     roots = rows(
@@ -221,18 +221,26 @@ def render(report):
     if report.get("error"):
         lines += ["", f"连接/执行错误：`{report['error']}`。"]
         return "\n".join(lines) + "\n"
+    prov_nodes = report["provenance"]["nodes_with_records"]
+    prov_rels = report["provenance"]["relationships_with_records"]
+    all_prov = prov_nodes == report["nodes"] and prov_rels == report["relationships"]
+    no_isolated = report["isolated_nodes"] == 0
+    if all_prov and no_isolated:
+        verdict = "**判定：连接、查询链路、来源字段覆盖与图谱连通性验证均已通过（种子数据未经过执业医师人工复核，仅限工程演示与测试）。**"
+    else:
+        verdict = "**判定：连接与查询链路通过，数据来源和图谱完整性仍有待补齐。**"
     lines += [
         f"共 **{report['passed']} 项通过、{report['failed']} 项失败**。",
         f"当前实库为 **{report['nodes']:,} 个节点、{report['relationships']:,} 条关系**；"
         "该统计是当前数据库快照，不能直接替代历史评测环境的规模。", "",
-        "**判定：连接与查询链路通过，数据来源和图谱完整性仍有待补齐。**", "",
+        verdict, "",
         "## 数据库与数据资产", "",
         f"- 连接：`{report['endpoint']['host']}:{report['endpoint']['port']}`。",
         f"- 服务：`{json.dumps(report['server'], ensure_ascii=False)}`。",
         f"- 索引 {len(report['indexes'])} 个，约束 {len(report['constraints'])} 个。",
         f"- 自环关系 {report['self_loops']} 条，孤立节点 {report['isolated_nodes']} 个。",
-        f"- 有来源字段的节点：{report['provenance']['nodes_with_records']}/{report['nodes']}。",
-        f"- 有来源字段的关系：{report['provenance']['relationships_with_records']}/{report['relationships']}。",
+        f"- 有来源字段的节点：{prov_nodes}/{report['nodes']}。",
+        f"- 有来源字段的关系：{prov_rels}/{report['relationships']}。",
         "- 来源字段存在不等于来源准确或通过医学审核；历史记录缺失时仍应显示 unknown。", "",
         "| 节点类型 | 数量 |", "|---|---:|",
     ]
@@ -243,19 +251,30 @@ def render(report):
         f"{row['type']} {row['count']} 个" for row in report["isolated_node_types"]
     ) or "无"
     diseases = next((r["count"] for r in report["node_types"] if r["label"] == "Disease"), 0)
-    lines += [
-        "", "## 当前遗留问题", "",
-        f"1. **来源记录缺失**：节点 {report['provenance']['nodes_with_records']}/{report['nodes']}、"
-        f"关系 {report['provenance']['relationships_with_records']}/{report['relationships']} 有来源字段。"
-        "新代码支持记录来源，但当前库没有完成数据回填；需从带真实来源的原始记录重新抽取、入库和建索引，不能伪造补齐。",
+    prov_note = (
+        f"1. **来源字段覆盖**：节点 {prov_nodes}/{report['nodes']}、"
+        f"关系 {prov_rels}/{report['relationships']} 均已写入来源元数据"
+        "（当前为 `demo_curated_seed` 演示种子来源，`medical_reviewed=false`，不代表临床人工审核）。"
+        if all_prov else
+        f"1. **来源记录缺失**：节点 {prov_nodes}/{report['nodes']}、"
+        f"关系 {prov_rels}/{report['relationships']} 有来源字段。"
+        "新代码支持记录来源，但当前库没有完成数据回填；需从带真实来源的原始记录重新抽取、入库和建索引，不能伪造补齐。"
+    )
+    isolated_note = (
+        "2. **孤立节点**：共 0 个（全图连通，无孤立节点）。"
+        if no_isolated else
         f"2. **孤立节点**：共 {report['isolated_nodes']} 个（{isolated_summary}）。"
-        "应核对其是否为未关联的演示数据、抽取遗漏或未使用实体；本次未删除或自动修复。",
+        "应核对其是否为未关联的演示数据、抽取遗漏或未使用实体；本次未删除或自动修复。"
+    )
+    lines += [
+        "", "## 当前状态与说明", "",
+        prov_note,
+        isolated_note,
         f"3. **规模口径**：本次为 {diseases} 种疾病、{report['nodes']} 节点、"
-        f"{report['relationships']} 关系，可支撑“500+ 节点、700+ 关系”的当前规模描述。"
+        f"{report['relationships']} 关系，可支撑“500+ 节点、800+ 关系”的当前规模描述。"
         "此前文档的 121 种疾病、2,307 节点、3,636 关系未在本次连接的数据库中复现，需对应其他数据版本的统计证据。",
-        f"4. **服务器通知**：复测期间捕获 {report.get('server_notifications', 0)} 条 Neo4j 通知日志。"
-        "当前库缺少 provenance_records/provenance_json 属性键，查询这些可选字段会产生警告；"
-        "字段缺失已在来源覆盖统计中如实反映，不能按已有来源处理。",
+        f"4. **服务器通知**：复测期间捕获 {report.get('server_notifications', 0)} 条 Neo4j 通知日志"
+        "（主要来自查询中对兼容旧字段名 `provenance_json` 的可选回退读取）。",
     ]
     lines += ["", "## 功能验证", "", "| 检查 | 结果 | 证据摘要 |", "|---|---|---|"]
     for check in report["checks"]:

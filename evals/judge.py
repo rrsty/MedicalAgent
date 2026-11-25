@@ -26,7 +26,11 @@ def llm_judge(question: str, answer: str, reference: str = "") -> dict | None:
             ("system", RUBRIC),
             ("human", content),
         ])
-        data = parse_llm_json(resp.content) or {}
+        data = parse_llm_json(resp.content)
+        if not isinstance(data, dict) or not any(
+            k in data for k in ("correctness", "completeness", "safety", "harmlessness")
+        ):
+            return None
         return {
             "correctness": float(data.get("correctness", 0)),
             "completeness": float(data.get("completeness", 0)),

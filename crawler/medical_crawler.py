@@ -18,7 +18,7 @@ import random
 import sys
 import time
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -99,7 +99,10 @@ class MedicalCrawler:
         try:
             if self._robots_rules is None:
                 self._load_robots()
-            path = url.replace("://", ":", 1).split(":", 1)[1]  # 去 scheme+host
+            parsed = urlsplit(url)
+            path = parsed.path or "/"
+            if parsed.query:
+                path = f"{path}?{parsed.query}"
             allow_len, disallow_len = 0, 0
             for is_allow, pattern in self._robots_rules:
                 matched = self._rule_length(pattern, path)
@@ -228,12 +231,15 @@ class MedicalCrawler:
                 ).to_dict()
                 records.append(record)
                 self.crawled[url] = record["name"]
+                # 先持久化已爬数据再写 checkpoint，防止中断重跑时跳过 URL 造成数据永久丢失
+                self._merge_and_save([record])
             else:
                 logger.warning("爬取失败或内容为空: %s", name)
 
             self._save_checkpoint()
 
-        self._merge_and_save(records)
+        if records:
+            self._merge_and_save(records)
         return records
 
     def _merge_and_save(self, new_records: list[dict]) -> None:

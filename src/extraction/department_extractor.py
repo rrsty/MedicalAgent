@@ -1,5 +1,5 @@
 """科室实体抽取器：标准科室名称 + 诊治疾病。"""
-from src.common.llm import get_llm
+from src.common.llm import get_extract_llm
 from src.common.logger import setup_logger
 from src.extraction.schemas import DepartmentExtractionResult
 
@@ -13,14 +13,15 @@ SYSTEM_PROMPT = """你是一个专业的医疗信息抽取助手。请从文本�
 3. 如能推断，列出该科室诊治的疾病
 4. 没有相关信息时返回空列表
 
-以 JSON 格式输出结果"""
+以 JSON 格式输出结果：
+{"departments": [{"name": "科室名", "floor": "楼层或null"}], "handles_diseases": ["疾病名"]}"""
 
 
 class DepartmentExtractor:
     """科室实体抽取器。"""
 
     def __init__(self, temperature: float = 0):
-        self.llm = get_llm(temperature).with_structured_output(
+        self.llm = get_extract_llm(temperature).with_structured_output(
             DepartmentExtractionResult, method="json_mode"
         )
 

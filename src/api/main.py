@@ -9,7 +9,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,6 +19,7 @@ from config.settings import settings
 from src.agents.graph import NODE_LABELS_ZH, app as graph_app
 from src.api.routes import init_router, router
 from src.common.logger import setup_logger
+from src.knowledge_graph.schema_manager import close_driver
 from src.vector_store.search import get_shared_retriever, preload_retrieval_stack
 
 logger = setup_logger("api.main", "api.log")
@@ -41,6 +42,7 @@ async def lifespan(app: FastAPI):
 
     yield
     _state["graph_app"] = None
+    close_driver()
 
 
 app = FastAPI(
@@ -83,7 +85,9 @@ if (FRONTEND_DIST_DIR / "assets").exists():
 
 @app.get("/{full_path:path}", include_in_schema=False)
 async def spa_fallback(full_path: str):
-    """history 模式刷新兜底：非 /api 路径全部回 index.html。"""
+    """history 模式刷新兜底：非 /api 路径全部回 index.html；未匹配的 /api 路径严格返回 404。"""
+    if full_path == "api" or full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="API 接口不存在")
     candidate = FRONTEND_DIST_DIR / full_path
     if full_path and candidate.is_file() and candidate.resolve().is_relative_to(
         FRONTEND_DIST_DIR.resolve()

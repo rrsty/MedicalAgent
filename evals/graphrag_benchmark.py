@@ -150,10 +150,19 @@ class EvidenceBudgetManager:
 
 
 def triage_department_ranker(context, all_departments):
-    # Same deterministic ranker for both arms. This is a retrieval diagnostic,
-    # NOT a measurement of the production department agent.
-    scores = [(context.count(dep), dep) for dep in all_departments]
-    return [dep for count, dep in sorted(scores, key=lambda x: (-x[0], x[1])) if count][:3]
+    # Same deterministic ranker for both arms. Match longest department names
+    # first and mask matched spans so "呼吸内科" does not double-count "内科".
+    remaining = context or ""
+    counts: dict[str, int] = {}
+    for dep in sorted(set(all_departments), key=lambda d: (-len(d), d)):
+        if not dep:
+            continue
+        c = remaining.count(dep)
+        if c:
+            counts[dep] = c
+            remaining = remaining.replace(dep, " ")
+    ranked = sorted(counts.items(), key=lambda x: (-x[1], x[0]))
+    return [dep for dep, _ in ranked[:3]]
 
 
 def generate_answer_with_llm(query, context, reference=""):

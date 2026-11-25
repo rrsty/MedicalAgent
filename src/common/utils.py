@@ -86,6 +86,13 @@ def parse_llm_json(text: str) -> dict | None:
         obj = json.loads(block)
         return obj if isinstance(obj, dict) else None
     except json.JSONDecodeError as exc:
+        # 容忍末尾附带含 "}" 解释文本或连续多个 JSON 对象的情况
+        try:
+            obj, _ = json.JSONDecoder().raw_decode(block)
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            pass
         logger.warning("JSON 解析失败: %s", exc)
         return None
 
@@ -111,7 +118,9 @@ def coerce_str_list(value) -> list[str]:
     """
     if value is None:
         return []
-    if isinstance(value, str):
+    if isinstance(value, (str, dict)):
+        value = [value]
+    elif not isinstance(value, (list, tuple, set)):
         value = [value]
     out: list[str] = []
     for item in value:

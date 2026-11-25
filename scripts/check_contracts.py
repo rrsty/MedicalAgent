@@ -58,7 +58,7 @@ def check_r1() -> None:
     offenders: list[str] = []
     scan_roots = [PROJECT_ROOT / d for d in ("src", "crawler", "scripts", "evals")]
     fstring_enum = re.compile(
-        r"f(['\"]).*?\{[^}]*(NodeType|RelationType|IntentType)(\.\w+)*[^}]*\}.*?"
+        r"""f(['"]).*?\{[^}]*\b(NodeType|RelationType|IntentType)\.\w+\b(?!\.value\b)[^}]*\}.*?\1"""
     )
     for root in scan_roots:
         for py_file in root.rglob("*.py"):
