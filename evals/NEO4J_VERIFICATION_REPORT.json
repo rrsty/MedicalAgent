@@ -1,5 +1,5 @@
 {
-  "tested_at": "2026-11-11T21:03:19.733985+08:00",
+  "tested_at": "2026-11-25T17:34:51.849242+08:00",
   "endpoint": {
     "host": "127.0.0.1",
     "port": 7687
@@ -15,7 +15,7 @@
       "name": "Bolt 连接与认证",
       "passed": true,
       "details": {
-        "elapsed_ms": 21.846
+        "elapsed_ms": 15.736
       }
     },
     {
@@ -23,7 +23,7 @@
       "passed": true,
       "details": {
         "nodes": 535,
-        "relationships": 716
+        "relationships": 838
       }
     },
     {
@@ -41,12 +41,12 @@
         {
           "type": "Disease",
           "name": "高血压",
-          "degree": 27
+          "degree": 31
         },
         {
           "type": "Medication",
-          "name": "对乙酰氨基酚",
-          "degree": 6
+          "name": "阿司匹林",
+          "degree": 7
         },
         {
           "type": "Symptom",
@@ -115,10 +115,10 @@
       "name": "Medication 默认多跳查询",
       "passed": true,
       "details": {
-        "root": "对乙酰氨基酚",
+        "root": "阿司匹林",
         "error": null,
-        "triples": 16,
-        "hop1": 6,
+        "triples": 15,
+        "hop1": 5,
         "hop2": 10,
         "hop3": 0
       }
@@ -127,15 +127,15 @@
       "name": "Medication 三元组真实方向",
       "passed": true,
       "details": {
-        "matched_in_database": 16,
-        "returned": 16
+        "matched_in_database": 15,
+        "returned": 15
       }
     },
     {
       "name": "Medication 单跳",
       "passed": true,
       "details": {
-        "triples": 6,
+        "triples": 5,
         "applied_hops": 1,
         "error": null
       }
@@ -144,7 +144,7 @@
       "name": "Medication 超额跳数截断",
       "passed": true,
       "details": {
-        "triples": 16,
+        "triples": 15,
         "applied_hops": 2,
         "error": null
       }
@@ -317,7 +317,7 @@
       "passed": true,
       "details": {
         "documents": 535,
-        "corpus_hash": "e14c9e3b51c84c75ec303061f60167c2e8d6165f1f322cc0b8e761259ce7ec6c"
+        "corpus_hash": "2ef274a0b987445672af62cd08d164f90a193a0cac6a4a2d009d24f3e03a021c"
       }
     }
   ],
@@ -326,31 +326,31 @@
       "root": "高血压",
       "type": "Disease",
       "n": 10,
-      "first_in_this_process_ms": 15.957,
-      "p50_ms": 11.962,
-      "p95_ms": 13.623,
-      "min_ms": 10.773,
-      "max_ms": 14.002
+      "first_in_this_process_ms": 149.267,
+      "p50_ms": 8.095,
+      "p95_ms": 14.618,
+      "min_ms": 6.749,
+      "max_ms": 15.421
     },
     {
-      "root": "对乙酰氨基酚",
+      "root": "阿司匹林",
       "type": "Medication",
       "n": 10,
-      "first_in_this_process_ms": 10.831,
-      "p50_ms": 10.738,
-      "p95_ms": 13.074,
-      "min_ms": 9.797,
-      "max_ms": 13.318
+      "first_in_this_process_ms": 78.0,
+      "p50_ms": 6.556,
+      "p95_ms": 12.02,
+      "min_ms": 5.847,
+      "max_ms": 13.858
     },
     {
       "root": "乏力",
       "type": "Symptom",
       "n": 10,
-      "first_in_this_process_ms": 11.203,
-      "p50_ms": 9.435,
-      "p95_ms": 10.968,
-      "min_ms": 8.173,
-      "max_ms": 11.036
+      "first_in_this_process_ms": 7.612,
+      "p50_ms": 6.878,
+      "p95_ms": 7.404,
+      "min_ms": 5.959,
+      "max_ms": 7.557
     }
   ],
   "samples": [
@@ -365,22 +365,24 @@
       "hop3_count": 0,
       "triples": [
         {
-          "subject": "心血管内科",
-          "subject_type": "Department",
-          "predicate": "HANDLES_DISEASE",
-          "object": "高血压",
-          "object_type": "Disease",
-          "hop": 1,
-          "provenance": []
-        },
-        {
           "subject": "高血压",
           "subject_type": "Disease",
           "predicate": "AFFECTS_BODY_PART",
           "object": "心脏",
           "object_type": "BodyPart",
           "hop": 1,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.187728+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/高血压"
+            }
+          ]
         },
         {
           "subject": "高血压",
@@ -389,7 +391,18 @@
           "object": "肾脏",
           "object_type": "BodyPart",
           "hop": 1,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.187728+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/高血压"
+            }
+          ]
         },
         {
           "subject": "高血压",
@@ -398,7 +411,58 @@
           "object": "血管",
           "object_type": "BodyPart",
           "hop": 1,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.187728+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/高血压"
+            }
+          ]
+        },
+        {
+          "subject": "高血压",
+          "subject_type": "Disease",
+          "predicate": "AVOIDS_FOOD",
+          "object": "腌制食品",
+          "object_type": "Food",
+          "hop": 1,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.187728+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/高血压"
+            }
+          ]
+        },
+        {
+          "subject": "高血压",
+          "subject_type": "Disease",
+          "predicate": "AVOIDS_FOOD",
+          "object": "高脂饮食",
+          "object_type": "Food",
+          "hop": 1,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.187728+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/高血压"
+            }
+          ]
         },
         {
           "subject": "高血压",
@@ -407,70 +471,118 @@
           "object": "心血管内科",
           "object_type": "Department",
           "hop": 1,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.187728+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/高血压"
+            }
+          ]
         },
         {
           "subject": "高血压",
           "subject_type": "Disease",
-          "predicate": "HAS_SYMPTOM",
-          "object": "头晕",
-          "object_type": "Symptom",
+          "predicate": "HAS_PRECAUTION",
+          "object": "低盐饮食",
+          "object_type": "Precaution",
           "hop": 1,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.187728+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/高血压"
+            }
+          ]
         },
         {
           "subject": "高血压",
           "subject_type": "Disease",
-          "predicate": "HAS_SYMPTOM",
-          "object": "头痛",
-          "object_type": "Symptom",
+          "predicate": "HAS_PRECAUTION",
+          "object": "规律监测血压",
+          "object_type": "Precaution",
           "hop": 1,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.187728+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/高血压"
+            }
+          ]
         },
         {
           "subject": "高血压",
           "subject_type": "Disease",
-          "predicate": "HAS_SYMPTOM",
-          "object": "心悸",
-          "object_type": "Symptom",
+          "predicate": "HAS_PRECAUTION",
+          "object": "适量运动",
+          "object_type": "Precaution",
           "hop": 1,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.187728+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/高血压"
+            }
+          ]
         },
         {
           "subject": "高血压",
           "subject_type": "Disease",
-          "predicate": "HAS_SYMPTOM",
-          "object": "疲劳",
-          "object_type": "Symptom",
+          "predicate": "HAS_PRECAUTION",
+          "object": "避免熬夜",
+          "object_type": "Precaution",
           "hop": 1,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.187728+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/高血压"
+            }
+          ]
         },
         {
-          "subject": "高血压",
+          "subject": "便秘",
           "subject_type": "Disease",
-          "predicate": "HAS_SYMPTOM",
-          "object": "耳鸣",
-          "object_type": "Symptom",
-          "hop": 1,
-          "provenance": []
-        },
-        {
-          "subject": "心血管内科",
-          "subject_type": "Department",
-          "predicate": "HANDLES_DISEASE",
-          "object": "冠心病",
-          "object_type": "Disease",
+          "predicate": "HAS_PRECAUTION",
+          "object": "适量运动",
+          "object_type": "Precaution",
           "hop": 2,
-          "provenance": []
-        },
-        {
-          "subject": "心血管内科",
-          "subject_type": "Department",
-          "predicate": "HANDLES_DISEASE",
-          "object": "冠心病心绞痛",
-          "object_type": "Disease",
-          "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.190600+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/便秘"
+            }
+          ]
         },
         {
           "subject": "偏头痛",
@@ -479,7 +591,18 @@
           "object": "血管",
           "object_type": "BodyPart",
           "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.191212+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/偏头痛"
+            }
+          ]
         },
         {
           "subject": "冠心病",
@@ -488,7 +611,38 @@
           "object": "心脏",
           "object_type": "BodyPart",
           "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.188359+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/冠心病"
+            }
+          ]
+        },
+        {
+          "subject": "冠心病",
+          "subject_type": "Disease",
+          "predicate": "AVOIDS_FOOD",
+          "object": "高脂饮食",
+          "object_type": "Food",
+          "hop": 2,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.188359+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/冠心病"
+            }
+          ]
         },
         {
           "subject": "冠心病",
@@ -497,16 +651,18 @@
           "object": "心血管内科",
           "object_type": "Department",
           "hop": 2,
-          "provenance": []
-        },
-        {
-          "subject": "冠心病",
-          "subject_type": "Disease",
-          "predicate": "HAS_SYMPTOM",
-          "object": "心悸",
-          "object_type": "Symptom",
-          "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.188359+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/冠心病"
+            }
+          ]
         },
         {
           "subject": "冠心病心绞痛",
@@ -515,7 +671,38 @@
           "object": "心脏",
           "object_type": "BodyPart",
           "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.196057+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/冠心病心绞痛"
+            }
+          ]
+        },
+        {
+          "subject": "冠心病心绞痛",
+          "subject_type": "Disease",
+          "predicate": "AVOIDS_FOOD",
+          "object": "高脂饮食",
+          "object_type": "Food",
+          "hop": 2,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.196057+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/冠心病心绞痛"
+            }
+          ]
         },
         {
           "subject": "冠心病心绞痛",
@@ -524,41 +711,77 @@
           "object": "心血管内科",
           "object_type": "Department",
           "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.196057+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/冠心病心绞痛"
+            }
+          ]
         },
         {
           "subject": "头痛",
           "subject_type": "Disease",
-          "predicate": "HAS_SYMPTOM",
-          "object": "头晕",
-          "object_type": "Symptom",
+          "predicate": "HAS_PRECAUTION",
+          "object": "避免熬夜",
+          "object_type": "Precaution",
           "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.191025+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/头痛"
+            }
+          ]
         },
         {
-          "subject": "流感",
+          "subject": "甲状腺功能亢进",
           "subject_type": "Disease",
-          "predicate": "HAS_SYMPTOM",
-          "object": "头痛",
-          "object_type": "Symptom",
+          "predicate": "AFFECTS_BODY_PART",
+          "object": "心脏",
+          "object_type": "BodyPart",
           "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.195030+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/甲状腺功能亢进"
+            }
+          ]
         }
       ],
       "visited_entities": [
+        "低盐饮食",
+        "便秘",
         "偏头痛",
         "冠心病",
         "冠心病心绞痛",
-        "头晕",
         "头痛",
-        "心悸",
         "心脏",
         "心血管内科",
-        "流感",
-        "疲劳",
-        "耳鸣",
+        "甲状腺功能亢进",
         "肾脏",
+        "腌制食品",
         "血管",
+        "规律监测血压",
+        "适量运动",
+        "避免熬夜",
+        "高脂饮食",
         "高血压"
       ],
       "provenance": {
@@ -568,173 +791,333 @@
       }
     },
     {
-      "root_entity": "对乙酰氨基酚",
+      "root_entity": "阿司匹林",
       "configured_max_hops": 2,
       "applied_hops": 2,
       "executed_hops": 2,
-      "total_triples": 16,
-      "hop1_count": 6,
+      "total_triples": 15,
+      "hop1_count": 5,
       "hop2_count": 10,
       "hop3_count": 0,
       "triples": [
         {
-          "subject": "头痛",
+          "subject": "冠心病",
           "subject_type": "Disease",
           "predicate": "TREATED_BY_MEDICATION",
-          "object": "对乙酰氨基酚",
+          "object": "阿司匹林",
           "object_type": "Medication",
           "hop": 1,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.188359+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/冠心病"
+            }
+          ]
         },
         {
-          "subject": "感冒",
+          "subject": "脑梗塞",
           "subject_type": "Disease",
           "predicate": "TREATED_BY_MEDICATION",
-          "object": "对乙酰氨基酚",
+          "object": "阿司匹林",
           "object_type": "Medication",
           "hop": 1,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.191644+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/脑梗塞"
+            }
+          ]
         },
         {
-          "subject": "流感",
+          "subject": "阿司匹林",
+          "subject_type": "Medication",
+          "predicate": "HAS_SIDE_EFFECT",
+          "object": "胃部不适",
+          "object_type": "Symptom",
+          "hop": 1,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.196684+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/medication_safety_pairs"
+            }
+          ]
+        },
+        {
+          "subject": "阿司匹林",
+          "subject_type": "Medication",
+          "predicate": "INTERACTS_WITH",
+          "object": "华法林",
+          "object_type": "Medication",
+          "hop": 1,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.196684+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/medication_safety_pairs"
+            }
+          ]
+        },
+        {
+          "subject": "阿司匹林",
+          "subject_type": "Medication",
+          "predicate": "INTERACTS_WITH",
+          "object": "布洛芬",
+          "object_type": "Medication",
+          "hop": 1,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.196684+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/medication_safety_pairs"
+            }
+          ]
+        },
+        {
+          "subject": "偏头痛",
           "subject_type": "Disease",
           "predicate": "TREATED_BY_MEDICATION",
-          "object": "对乙酰氨基酚",
+          "object": "布洛芬",
           "object_type": "Medication",
-          "hop": 1,
-          "provenance": []
-        },
-        {
-          "subject": "对乙酰氨基酚",
-          "subject_type": "Medication",
-          "predicate": "TREATS_DISEASE",
-          "object": "头痛",
-          "object_type": "Disease",
-          "hop": 1,
-          "provenance": []
-        },
-        {
-          "subject": "对乙酰氨基酚",
-          "subject_type": "Medication",
-          "predicate": "TREATS_DISEASE",
-          "object": "感冒",
-          "object_type": "Disease",
-          "hop": 1,
-          "provenance": []
-        },
-        {
-          "subject": "对乙酰氨基酚",
-          "subject_type": "Medication",
-          "predicate": "TREATS_DISEASE",
-          "object": "流感",
-          "object_type": "Disease",
-          "hop": 1,
-          "provenance": []
-        },
-        {
-          "subject": "呼吸内科",
-          "subject_type": "Department",
-          "predicate": "HANDLES_DISEASE",
-          "object": "感冒",
-          "object_type": "Disease",
           "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.191212+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/偏头痛"
+            }
+          ]
         },
         {
-          "subject": "呼吸内科",
-          "subject_type": "Department",
-          "predicate": "HANDLES_DISEASE",
-          "object": "流感",
-          "object_type": "Disease",
-          "hop": 2,
-          "provenance": []
-        },
-        {
-          "subject": "神经内科",
-          "subject_type": "Department",
-          "predicate": "HANDLES_DISEASE",
-          "object": "头痛",
-          "object_type": "Disease",
-          "hop": 2,
-          "provenance": []
-        },
-        {
-          "subject": "头痛",
+          "subject": "冠心病",
           "subject_type": "Disease",
           "predicate": "AFFECTS_BODY_PART",
-          "object": "头部",
+          "object": "冠状动脉",
           "object_type": "BodyPart",
           "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.188359+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/冠心病"
+            }
+          ]
         },
         {
-          "subject": "头痛",
+          "subject": "冠心病",
+          "subject_type": "Disease",
+          "predicate": "AFFECTS_BODY_PART",
+          "object": "心脏",
+          "object_type": "BodyPart",
+          "hop": 2,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.188359+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/冠心病"
+            }
+          ]
+        },
+        {
+          "subject": "冠心病",
+          "subject_type": "Disease",
+          "predicate": "AVOIDS_FOOD",
+          "object": "动物内脏",
+          "object_type": "Food",
+          "hop": 2,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.188359+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/冠心病"
+            }
+          ]
+        },
+        {
+          "subject": "冠心病",
+          "subject_type": "Disease",
+          "predicate": "AVOIDS_FOOD",
+          "object": "高脂饮食",
+          "object_type": "Food",
+          "hop": 2,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.188359+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/冠心病"
+            }
+          ]
+        },
+        {
+          "subject": "冠心病",
           "subject_type": "Disease",
           "predicate": "BELONGS_TO_DEPARTMENT",
-          "object": "神经内科",
+          "object": "心血管内科",
           "object_type": "Department",
           "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.188359+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/冠心病"
+            }
+          ]
         },
         {
-          "subject": "头痛",
+          "subject": "冠心病",
+          "subject_type": "Disease",
+          "predicate": "HAS_PRECAUTION",
+          "object": "戒烟限酒",
+          "object_type": "Precaution",
+          "hop": 2,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.188359+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/冠心病"
+            }
+          ]
+        },
+        {
+          "subject": "冠心病",
+          "subject_type": "Disease",
+          "predicate": "HAS_PRECAUTION",
+          "object": "避免劳累",
+          "object_type": "Precaution",
+          "hop": 2,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.188359+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/冠心病"
+            }
+          ]
+        },
+        {
+          "subject": "冠心病",
+          "subject_type": "Disease",
+          "predicate": "HAS_PRECAUTION",
+          "object": "随身携带急救药物",
+          "object_type": "Precaution",
+          "hop": 2,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.188359+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/冠心病"
+            }
+          ]
+        },
+        {
+          "subject": "冠心病",
           "subject_type": "Disease",
           "predicate": "HAS_SYMPTOM",
-          "object": "头晕",
+          "object": "心悸",
           "object_type": "Symptom",
           "hop": 2,
-          "provenance": []
-        },
-        {
-          "subject": "头痛",
-          "subject_type": "Disease",
-          "predicate": "HAS_SYMPTOM",
-          "object": "头部胀痛",
-          "object_type": "Symptom",
-          "hop": 2,
-          "provenance": []
-        },
-        {
-          "subject": "头痛",
-          "subject_type": "Disease",
-          "predicate": "HAS_SYMPTOM",
-          "object": "搏动性疼痛",
-          "object_type": "Symptom",
-          "hop": 2,
-          "provenance": []
-        },
-        {
-          "subject": "头痛",
-          "subject_type": "Disease",
-          "predicate": "NEEDS_EXAMINATION",
-          "object": "头部CT",
-          "object_type": "Examination",
-          "hop": 2,
-          "provenance": []
-        },
-        {
-          "subject": "头痛",
-          "subject_type": "Disease",
-          "predicate": "NEEDS_EXAMINATION",
-          "object": "脑电图",
-          "object_type": "Examination",
-          "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.188359+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/冠心病"
+            }
+          ]
         }
       ],
       "visited_entities": [
-        "呼吸内科",
-        "头晕",
-        "头痛",
-        "头部",
-        "头部CT",
-        "头部胀痛",
-        "对乙酰氨基酚",
-        "感冒",
-        "搏动性疼痛",
-        "流感",
-        "神经内科",
-        "脑电图"
+        "偏头痛",
+        "冠心病",
+        "冠状动脉",
+        "动物内脏",
+        "华法林",
+        "布洛芬",
+        "心悸",
+        "心脏",
+        "心血管内科",
+        "戒烟限酒",
+        "胃部不适",
+        "脑梗塞",
+        "避免劳累",
+        "阿司匹林",
+        "随身携带急救药物",
+        "高脂饮食"
       ],
       "provenance": {
         "source_platform": "unknown",
@@ -759,7 +1142,18 @@
           "object": "乏力",
           "object_type": "Symptom",
           "hop": 1,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.194421+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/抑郁症"
+            }
+          ]
         },
         {
           "subject": "流感",
@@ -768,7 +1162,18 @@
           "object": "乏力",
           "object_type": "Symptom",
           "hop": 1,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.189003+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/流感"
+            }
+          ]
         },
         {
           "subject": "类风湿关节炎",
@@ -777,7 +1182,18 @@
           "object": "乏力",
           "object_type": "Symptom",
           "hop": 1,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.192285+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/类风湿关节炎"
+            }
+          ]
         },
         {
           "subject": "糖尿病",
@@ -786,7 +1202,18 @@
           "object": "乏力",
           "object_type": "Symptom",
           "hop": 1,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.188095+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/糖尿病"
+            }
+          ]
         },
         {
           "subject": "脂肪肝",
@@ -795,7 +1222,18 @@
           "object": "乏力",
           "object_type": "Symptom",
           "hop": 1,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.190813+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/脂肪肝"
+            }
+          ]
         },
         {
           "subject": "贫血",
@@ -804,61 +1242,18 @@
           "object": "乏力",
           "object_type": "Symptom",
           "hop": 1,
-          "provenance": []
-        },
-        {
-          "subject": "内分泌科",
-          "subject_type": "Department",
-          "predicate": "HANDLES_DISEASE",
-          "object": "糖尿病",
-          "object_type": "Disease",
-          "hop": 2,
-          "provenance": []
-        },
-        {
-          "subject": "呼吸内科",
-          "subject_type": "Department",
-          "predicate": "HANDLES_DISEASE",
-          "object": "流感",
-          "object_type": "Disease",
-          "hop": 2,
-          "provenance": []
-        },
-        {
-          "subject": "消化内科",
-          "subject_type": "Department",
-          "predicate": "HANDLES_DISEASE",
-          "object": "脂肪肝",
-          "object_type": "Disease",
-          "hop": 2,
-          "provenance": []
-        },
-        {
-          "subject": "精神心理科",
-          "subject_type": "Department",
-          "predicate": "HANDLES_DISEASE",
-          "object": "抑郁症",
-          "object_type": "Disease",
-          "hop": 2,
-          "provenance": []
-        },
-        {
-          "subject": "血液科",
-          "subject_type": "Department",
-          "predicate": "HANDLES_DISEASE",
-          "object": "贫血",
-          "object_type": "Disease",
-          "hop": 2,
-          "provenance": []
-        },
-        {
-          "subject": "风湿免疫科",
-          "subject_type": "Department",
-          "predicate": "HANDLES_DISEASE",
-          "object": "类风湿关节炎",
-          "object_type": "Disease",
-          "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.192717+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/贫血"
+            }
+          ]
         },
         {
           "subject": "抑郁症",
@@ -867,7 +1262,38 @@
           "object": "大脑",
           "object_type": "BodyPart",
           "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.194421+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/抑郁症"
+            }
+          ]
+        },
+        {
+          "subject": "抑郁症",
+          "subject_type": "Disease",
+          "predicate": "AVOIDS_FOOD",
+          "object": "酒精",
+          "object_type": "Food",
+          "hop": 2,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.194421+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/抑郁症"
+            }
+          ]
         },
         {
           "subject": "抑郁症",
@@ -876,7 +1302,98 @@
           "object": "精神心理科",
           "object_type": "Department",
           "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.194421+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/抑郁症"
+            }
+          ]
+        },
+        {
+          "subject": "抑郁症",
+          "subject_type": "Disease",
+          "predicate": "HAS_PRECAUTION",
+          "object": "及时就医",
+          "object_type": "Precaution",
+          "hop": 2,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.194421+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/抑郁症"
+            }
+          ]
+        },
+        {
+          "subject": "抑郁症",
+          "subject_type": "Disease",
+          "predicate": "HAS_PRECAUTION",
+          "object": "坚持治疗",
+          "object_type": "Precaution",
+          "hop": 2,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.194421+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/抑郁症"
+            }
+          ]
+        },
+        {
+          "subject": "抑郁症",
+          "subject_type": "Disease",
+          "predicate": "HAS_PRECAUTION",
+          "object": "社会支持",
+          "object_type": "Precaution",
+          "hop": 2,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.194421+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/抑郁症"
+            }
+          ]
+        },
+        {
+          "subject": "抑郁症",
+          "subject_type": "Disease",
+          "predicate": "HAS_PRECAUTION",
+          "object": "规律运动",
+          "object_type": "Precaution",
+          "hop": 2,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.194421+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/抑郁症"
+            }
+          ]
         },
         {
           "subject": "抑郁症",
@@ -885,7 +1402,18 @@
           "object": "兴趣减退",
           "object_type": "Symptom",
           "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.194421+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/抑郁症"
+            }
+          ]
         },
         {
           "subject": "抑郁症",
@@ -894,26 +1422,58 @@
           "object": "情绪低落",
           "object_type": "Symptom",
           "hop": 2,
-          "provenance": []
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.194421+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/抑郁症"
+            }
+          ]
+        },
+        {
+          "subject": "抑郁症",
+          "subject_type": "Disease",
+          "predicate": "HAS_SYMPTOM",
+          "object": "睡眠障碍",
+          "object_type": "Symptom",
+          "hop": 2,
+          "provenance": [
+            {
+              "crawl_timestamp": "2026-11-25T09:31:57.194421+00:00",
+              "disclaimer": "本数据为系统预置演示医学常识，未由国家临床执业医师进行同行复审，仅供工程测试与原型演示。",
+              "evidence_grade": "internal_demo_knowledge",
+              "medical_reviewed": false,
+              "rate_limit_applied": false,
+              "robots_txt_status": "not_applicable_internal",
+              "source_platform": "demo_curated_seed",
+              "source_url": "internal://demo_seed/抑郁症"
+            }
+          ]
         }
       ],
       "visited_entities": [
         "乏力",
         "兴趣减退",
-        "内分泌科",
-        "呼吸内科",
+        "及时就医",
+        "坚持治疗",
         "大脑",
         "情绪低落",
         "抑郁症",
         "流感",
-        "消化内科",
+        "睡眠障碍",
+        "社会支持",
         "类风湿关节炎",
         "精神心理科",
         "糖尿病",
         "脂肪肝",
-        "血液科",
+        "规律运动",
         "贫血",
-        "风湿免疫科"
+        "酒精"
       ],
       "provenance": {
         "source_platform": "unknown",
@@ -932,7 +1492,7 @@
     }
   ],
   "nodes": 535,
-  "relationships": 716,
+  "relationships": 838,
   "node_types": [
     {
       "label": "BodyPart",
@@ -973,12 +1533,20 @@
       "count": 75
     },
     {
+      "type": "AVOIDS_FOOD",
+      "count": 71
+    },
+    {
       "type": "BELONGS_TO_DEPARTMENT",
       "count": 40
     },
     {
       "type": "HANDLES_DISEASE",
       "count": 40
+    },
+    {
+      "type": "HAS_PRECAUTION",
+      "count": 121
     },
     {
       "type": "HAS_SIDE_EFFECT",
@@ -990,7 +1558,7 @@
     },
     {
       "type": "INTERACTS_WITH",
-      "count": 1
+      "count": 2
     },
     {
       "type": "NEEDS_EXAMINATION",
@@ -998,7 +1566,7 @@
     },
     {
       "type": "RECOMMENDS_FOOD",
-      "count": 125
+      "count": 54
     },
     {
       "type": "TREATED_BY_MEDICATION",
@@ -1091,14 +1659,14 @@
       ]
     },
     {
-      "name": "precaution_name_unique",
+      "name": "precaution_content_unique",
       "type": "RANGE",
       "state": "ONLINE",
       "labelsOrTypes": [
         "Precaution"
       ],
       "properties": [
-        "name"
+        "content"
       ]
     },
     {
@@ -1175,13 +1743,13 @@
       ]
     },
     {
-      "name": "precaution_name_unique",
+      "name": "precaution_content_unique",
       "type": "UNIQUENESS",
       "labelsOrTypes": [
         "Precaution"
       ],
       "properties": [
-        "name"
+        "content"
       ]
     },
     {
@@ -1196,23 +1764,14 @@
     }
   ],
   "self_loops": 0,
-  "isolated_nodes": 102,
-  "isolated_node_types": [
-    {
-      "type": "Medication",
-      "count": 1
-    },
-    {
-      "type": "Precaution",
-      "count": 101
-    }
-  ],
+  "isolated_nodes": 0,
+  "isolated_node_types": [],
   "provenance": {
-    "nodes_with_records": 0,
-    "relationships_with_records": 0
+    "nodes_with_records": 535,
+    "relationships_with_records": 838
   },
-  "corpus_hash": "e14c9e3b51c84c75ec303061f60167c2e8d6165f1f322cc0b8e761259ce7ec6c",
+  "corpus_hash": "2ef274a0b987445672af62cd08d164f90a193a0cac6a4a2d009d24f3e03a021c",
   "passed": 31,
   "failed": 0,
-  "server_notifications": 514
+  "server_notifications": 0
 }

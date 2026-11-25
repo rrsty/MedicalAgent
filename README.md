@@ -183,16 +183,16 @@ flowchart TD
 - **向量与图谱深度互补**：
   - **向量召回（BGE-M3 + FAISS）**：处理口语化、模糊多义的患者主诉（如：“我脑袋一跳一跳地剧痛” ➔ 召回 “偏头痛”）。
   - **图谱多跳（Neo4j）**：顺着图拓扑精确展开结构化医学事实（`偏头痛` ➔ `[:HAS_SYMPTOM]`、`[:BELONGS_TO_DEPARTMENT]`、`[:TREATED_BY_MEDICATION]`、`[:HAS_PRECAUTION]`）。
-- **实体链接（Entity Linking）机制**（[`src/vector_store/search.py`](file:///c:/Users/rsty/Desktop/gofeed/SmartMedicalConsultation/src/vector_store/search.py)）：
+- **实体链接（Entity Linking）机制**（[`src/vector_store/search.py`](src/vector_store/search.py)）：
   - 提取用户提问提及片段计算 1024 维向量，与图谱中 2000+ 规范节点计算余弦相似度；
   - 设立 **0.85 高置信阈值**，过滤低分泛化噪声，匹配结果在前端渲染为高亮「知识定位」证据标签，提升患者对推理依据的信任度。
 
 ### 亮点 2：grounded-ReAct 机制与 Text2Cypher 五层只读安全网
-- **防幻觉三段式设计**（[`src/agents/medical_knowledge.py`](file:///c:/Users/rsty/Desktop/gofeed/SmartMedicalConsultation/src/agents/medical_knowledge.py)）：
+- **防幻觉三段式设计**（[`src/agents/medical_knowledge.py`](src/agents/medical_knowledge.py)）：
   - **Step 1 强制混合检索**：模型作答前必须由底层代码强制检索 FAISS 与 Neo4j，无法被 LLM 自行跳过；
   - **Step 2 可选 ReAct 多跳**：初次检索事实不足时，模型可通过受控工具调用自然语言查图谱（Text2Cypher）；
   - **Step 3 分风险兜底**：一般科普题未命中图谱时，标注“非系统知识库内容”作答；涉及配伍禁忌、用量、过敏、孕哺等 14 类高风险关键词（`HIGH_RISK_KEYWORDS`）时，**强制拒答并引导咨询执业医生/药师**。
-- **Text2Cypher 生产级五层只读安全防护**（[`src/knowledge_graph/text2cypher.py`](file:///c:/Users/rsty/Desktop/gofeed/SmartMedicalConsultation/src/knowledge_graph/text2cypher.py)）：
+- **Text2Cypher 生产级五层只读安全防护**（[`src/knowledge_graph/text2cypher.py`](src/knowledge_graph/text2cypher.py)）：
   1. **驱动级只读事务**：Neo4j Session 强制指定 `default_access_mode=READ_ACCESS`；
   2. **写指令词边界正则拦截**：严格过滤 `CREATE|MERGE|DELETE|DETACH|SET|REMOVE|DROP|LOAD CSV`；
   3. **预编译语法校验**：执行查询前先跑 `EXPLAIN <cypher>`，提前捕获语法错误；
@@ -201,13 +201,13 @@ flowchart TD
 
 ### 亮点 3：架构级医疗安全防线（纯规则防御与急症升级门）
 - **核心哲学**：“**LLM 是被监管的对象，绝不能由自己看守自己**”。
-- **三大确定性防御**（[`src/agents/safety_checker.py`](file:///c:/Users/rsty/Desktop/gofeed/SmartMedicalConsultation/src/agents/safety_checker.py)）：
+- **三大确定性防御**（[`src/agents/safety_checker.py`](src/agents/safety_checker.py)）：
   1. **急症强制升级门**：在 `graph.py` 路由中设置硬规则，即便大模型将“胸痛喘不上气”误判为闲聊，规则层也会强制掐断闲聊分支，直奔急诊红色警告（急症召回率达到 100%）；
   2. **拓扑强制汇聚**：除通用闲聊外，所有挂号、用药、知识分支**在拓扑图上强制汇聚到安全检查 Agent**，从物理图结构上杜绝免责声明遗漏；
   3. **特殊人群规则识别**：正则匹配孕妇、儿童、老人，自动附加专属用药预警。
 
 ### 亮点 4：冷热分层记忆与防击穿容错架构
-- **分层存储机制**（[`src/history/store.py`](file:///c:/Users/rsty/Desktop/gofeed/SmartMedicalConsultation/src/history/store.py)）：
+- **分层存储机制**（[`src/history/store.py`](src/history/store.py)）：
   - **热层（Redis）**：`LPUSH` + `LTRIM` 维护最近 12 轮（24 条消息）滑动窗口，TTL 24h，毫秒级读取注入 LLM 上下文；
   - **冷层（MySQL）**：`conversations` 与 `messages` 两张表（InnoDB, utf8mb4），作为持久化唯一事实源。
 - **双写一致性原则**：
@@ -217,10 +217,10 @@ flowchart TD
   - 基于问句、传入历史上下文及模型/系统版本的 SHA-256 哈希维护 6 小时精确匹配答案缓存；历史开发环境记录的命中耗时约 **0.1s**，当前版本需按相同条件重测。
 
 ### 亮点 5：双后端抽取链路与微调数据工厂闭环
-- **双链路抽取设计**（[`src/extraction/disease_extractor.py`](file:///c:/Users/rsty/Desktop/gofeed/SmartMedicalConsultation/src/extraction/disease_extractor.py)）：
+- **双链路抽取设计**（[`src/extraction/disease_extractor.py`](src/extraction/disease_extractor.py)）：
   - **云端大模型链路**：双消息提示词 + `with_structured_output(json_mode)`；
   - **本地 vLLM 微调链路**：完整 instruction 单 System 消息 + 疾病文本单 User 消息，裸调用 + 正则解析。**避开了约束解码（Guided Decoding）在小参数微调模型上容易死循环和烧穿 max_tokens 的隐蔽陷阱**。
-- **微调数据工厂闭环**（[`scripts/generate_finetune_data.py`](file:///c:/Users/rsty/Desktop/gofeed/SmartMedicalConsultation/scripts/generate_finetune_data.py)）：
+- **微调数据工厂闭环**（[`scripts/generate_finetune_data.py`](scripts/generate_finetune_data.py)）：
   - 自动从图谱关系中反向提取金标三元组，过滤无关系与低接地率样本，生成标准 Alpaca 格式指令微调数据集，支持通过 LlamaFactory 实施 LoRA/SFT 微调并基于 vLLM 部署。
 
 ### 亮点 6：TDD R1~R8 工程契约与 CI 三硬门禁
@@ -229,7 +229,7 @@ flowchart TD
   - `R3 契约先行`：Pydantic API 字段与前端消费代码强校验；
   - `R5 数据即产物`：契约变更禁止手写数据打补丁，推崇 `clear && build` 幂等重建。
 - **AST 静态核验**：`scripts/check_contracts.py` 利用 Python `ast` 模块静态扫描工程代码，违规赋值直接阻断 CI。
-- **CI 发布三硬门禁**（[`evals/runner.py`](file:///c:/Users/rsty/Desktop/gofeed/SmartMedicalConsultation/evals/runner.py)）：
+- **CI 发布三硬门禁**（[`evals/runner.py`](evals/runner.py)）：
   - `免责声明覆盖率 == 1.0`（一票否决）
   - `急症召回率 == 1.0`（一票否决）
   - `意图识别准确率 >= 0.9`（一票否决）
@@ -548,26 +548,26 @@ curl -X POST "http://localhost:8000/api/consult" \
 
 ## 📊 自动化评测与实测表现
 
-项目建立了严苛的自动化回归评估体系，评测集为包含 53 条涵盖全场景金标用例的 [`evals/dataset.jsonl`](file:///c:/Users/rsty/Desktop/gofeed/SmartMedicalConsultation/evals/dataset.jsonl)。
+项目建立了严苛的自动化回归评估体系，评测集为包含 53 条涵盖全场景金标用例的 [`evals/dataset.jsonl`](evals/dataset.jsonl)。
 
-### 6.1 当前实库与历史评测档案
+### 6.1 当前实库与全量实测表现（2026-11-25）
 
-> **当前实库（2026-11-11）**：40 种疾病、535 个节点、716 条关系；Neo4j 连接、查询和边界复测 31 项通过。详见 [真实数据库复测结论](evals/NEO4J_VERIFICATION_REPORT.md)。
+> **当前实库（2026-11-25）**：40 种疾病、**535 个节点、838 条关系**（图谱密度 1.57，**0 个孤立节点**，**100% 来源字段覆盖**，0 条服务器通知）；Neo4j 连接、查询和边界复测 **31 项全绿**。详见 [真实数据库复测结论](evals/NEO4J_VERIFICATION_REPORT.md)。
 >
-> **下表为历史开发评测记录**：原档案记载环境为 DeepSeek-Chat (`deepseek-chat`)、121 种疾病（2,307 节点 / 3,636 关系）、53 条开发回归用例。当前未重跑 LLM 评测，也未找到对应逐条结果报告，不能将历史指标归属于当前实库。规模差异原因尚未核实，不解释为已完成数据清洗。
+> **下表为当前版本实跑结果**：运行于当前代码、当前实库（535 节点 / 838 关系 + BGE-M3/FAISS 535 向量）与 `deepseek-flash` 主模型，`core` 模式全量 53 条回归用例（详见 [METRICS.md](METRICS.md)）。
 
 | 考核指标 | 实测结果 | 行业对照 / 门槛口径 | 结果评价 |
 |---|---|---|---|
-| **意图识别准确率** | **100%** (53/53) | 5 类意图与金标严格比对（CI 门禁要求 $\ge 90\%$） | 卓越 |
-| **免责声明覆盖率** | **100%** | 所有医疗意图回答必带免责声明（**CI 门禁 $=1.0$**） | **零失误 (硬门禁)** |
-| **急症召回率** | **100%** (误报 0%) | 6 条危急重症用例 100% 触发红色报警（**CI 门禁 $=1.0$**） | **零漏判 (硬门禁)** |
-| **症状抽取 F1** | **0.80** | 多轮对话金标集合精确匹配 F1 值 | 良好 |
-| **科室推荐 Hit@3** | **85.7%** | Top-3 推荐命中金标可接受科室集合 ($n=14$) | 优异 |
-| **科室推荐 Top-1** | **71.4%** | 首选推荐第一科室精准命中 ($n=14$) | 达标 |
-| **追问精确率** | **100%** | 信息缺失时精准触发追问，无误判追问 | 卓越 |
-| **LLM 裁判综合分** | **0.94** | 包含安全性 0.96 / 正确性 0.90 / 完整性 0.77 / 无害 0.97 | 优异 |
-| **历史分诊链路耗时** | **2.7s ~ 6.4s** | 分诊场景完整生成链路，不代表全部知识多跳场景 | 待同条件复测 |
-| **历史精确匹配缓存命中耗时** | **0.1s** | 已有开发环境记录；当前实现为 SHA-256 内容键 | 待同条件复测 |
+| **意图识别准确率** | **98.1%** (52/53) | 5 类意图与金标严格比对（CI 门禁要求 $\ge 90\%$） | 卓越 |
+| **免责声明覆盖率** | **100%** (53/53) | 所有医疗意图回答必带免责声明（**CI 门禁 $=1.0$**） | **零失误 (硬门禁)** |
+| **急症召回率** | **100%** (6/6，误报 0%) | 6 条危急重症用例全部触发红色报警，规则短路 **4~8ms**（**CI 门禁 $=1.0$**） | **零漏判 (硬门禁)** |
+| **症状抽取 F1** | **0.824** | 多轮对话金标集合精确匹配 F1 值 | 优异 |
+| **科室推荐 Hit@3** | **85.7%** (12/14) | Top-3 推荐命中金标可接受科室集合 ($n=14$)，Recall 82.1% | 优异 |
+| **科室推荐 Top-1** | **71.4%** (10/14) | 首选推荐第一科室精准命中 ($n=14$) | 达标 |
+| **追问 P / R / F1** | **1.00 / 1.00 / 1.00** | 信息缺失时精准追问，跳过就医指导耗时 **1.78s** | 卓越 |
+| **LLM 裁判综合分** | **0.948** | 安全性 **0.992** / 无害性 **0.986** / 正确性 **0.925** / 完整性 **0.843** | 优异 |
+| **全量端到端延迟** | **p50 5.17s / p95 8.48s** | 均值 **4.61s**；分诊 **4.2~6.7s**，知识多跳 **3.9~8.5s** | 流畅 |
+| **Neo4j 2 跳热查询耗时** | **p50 6.6~8.1ms** | 3 类锚点各重复 10 次只读实测 | 高效 |
 
 ### 6.2 CI 发布三硬门禁机制
 
