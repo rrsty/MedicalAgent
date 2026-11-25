@@ -37,8 +37,8 @@ EMERGENCY_RULES: list[EmergencyRule] = [
         clinical_rationale="胸痛为急性心肌梗死、主动脉夹层、肺栓塞等致死性危急重症的主要首发表现，预检分诊中列为Ⅰ/Ⅱ级（濒危/危重），需即刻心电图并开放绿色通道。",
         applicable_conditions="突发剧烈胸痛、持续不缓解（>15-20分钟）、向左肩背或下颌放射、伴大汗或伴呼吸困难。",
         negation_patterns=[
-            r"无胸痛", r"没有胸痛", r"未见胸痛", r"排除了?心梗", r"排除心绞痛",
-            r"不是胸痛", r"胸痛已完全缓解", r"胸痛已愈", r"体检无胸痛",
+            r"(?<!有)无胸痛", r"(?<!有)没有胸痛", r"未见胸痛", r"排除了?心梗", r"排除心绞痛",
+            r"(?<!是)不是胸痛", r"胸痛已完全缓解", r"胸痛已愈", r"体检无胸痛",
         ],
         false_positive_cases=[
             "患者心电图正常，无胸痛症状",
@@ -56,8 +56,8 @@ EMERGENCY_RULES: list[EmergencyRule] = [
         clinical_rationale="突发严重呼吸困难或气道梗阻可在数分钟内导致严重低氧血症与呼吸衰竭，属于急诊Ⅰ级抢救范畴。",
         applicable_conditions="端坐呼吸、发绀、辅助呼吸肌参与、三凹征、指脉氧饱和度显著下降（<90%）或喉部喘鸣。",
         negation_patterns=[
-            r"无呼吸困难", r"没有呼吸困难", r"未见呼吸困难", r"排除了?窒息",
-            r"呼吸顺畅", r"呼吸平稳", r"不是窒息",
+            r"(?<!有)无呼吸困难", r"(?<!有)没有呼吸困难", r"未见呼吸困难", r"排除了?窒息",
+            r"呼吸顺畅", r"呼吸平稳", r"(?<!是)不是窒息",
             r"(?:电视|电影|新闻|小说|科普|网上看到).*(?:窒息|呼吸困难)",
         ],
         false_positive_cases=[
@@ -76,10 +76,10 @@ EMERGENCY_RULES: list[EmergencyRule] = [
         clinical_rationale="急性意识障碍或持续抽搐提示严重颅脑病变（脑卒中、颅内出血、癫痫持续状态）或重度脑缺氧，存在不可逆脑损伤和呼吸心跳抑制风险。",
         applicable_conditions="突发神志不清、言语不能、持续四肢强直抽搐（>5分钟）、呼之不应、一侧肢体突然无力。",
         negation_patterns=[
-            r"神志清楚", r"神清", r"无意识模糊", r"未昏迷", r"没有抽搐",
+            r"神志清楚", r"神清", r"(?<!有)无意识模糊", r"未昏迷", r"(?<!有)没有抽搐",
             r"未见抽搐", r"排除了?脑出血", r"排除抽搐", r"意识清醒",
             r"(?:曾经|以前|年前|小时候|既往).*(?:高热惊厥|抽搐|昏迷).*(?:正常|好转|痊愈|完全正常|没有)",
-            r"无高热惊厥",
+            r"(?<!有)无高热惊厥",
         ],
         false_positive_cases=[
             "神志清楚，无意识模糊与抽搐",
@@ -96,8 +96,8 @@ EMERGENCY_RULES: list[EmergencyRule] = [
         clinical_rationale="急性活动性出血可急剧引发低血容量性休克与循环衰竭，属于急诊分诊Ⅰ/Ⅱ级危急症。",
         applicable_conditions="喷射状或涌出性出血、持续加压包扎无效、单次呕血>200ml或咯鲜血、伴面色苍白和冷汗。",
         negation_patterns=[
-            r"无大出血", r"没有大出血", r"未见大出血", r"血已止住", r"已完全止血",
-            r"不是大出血", r"排除了?出血", r"无大量出血",
+            r"(?<!有)无大出血", r"(?<!有)没有大出血", r"未见大出血", r"血已止住", r"已完全止血",
+            r"(?<!是)不是大出血", r"排除了?出血", r"(?<!有)无大量出血",
         ],
         false_positive_cases=[
             "手指擦破皮出了一点血，已完全止血，无大出血",
@@ -114,7 +114,7 @@ EMERGENCY_RULES: list[EmergencyRule] = [
         clinical_rationale="有毒物质吸收迅速，多脏器衰竭及不可逆纤维化发生快，需紧急清除未吸收毒物并使用特效解毒剂。",
         applicable_conditions="明确有毒物口服/吸入/皮肤接触史，或群体性出现头晕、恶心、多汗、瞳孔改变等症状。",
         negation_patterns=[
-            r"无中毒", r"未见中毒", r"没有中毒", r"排除了?中毒", r"不是中毒",
+            r"(?<!有)无中毒", r"未见中毒", r"(?<!有)没有中毒", r"排除了?中毒", r"(?<!是)不是中毒",
             r"非中毒", r"化验显示未中毒",
             r"(?:读了|看了|一篇|关于|科普|文章|防范).*中毒",
         ],
@@ -133,7 +133,7 @@ EMERGENCY_RULES: list[EmergencyRule] = [
         clinical_rationale="瞬间达峰的极剧烈头痛（雷击样头痛）是颅内动脉瘤破裂导致蛛网膜下腔出血（SAH）的典型特征，极具致死与致残风险。",
         applicable_conditions="既往无类似剧痛发作、突发数秒至数分钟内达顶峰、常伴颈项强直、呕吐或意识改变。",
         negation_patterns=[
-            r"无剧烈头痛", r"没有剧烈头痛", r"不是剧烈头痛", r"轻度头痛",
+            r"(?<!有)无剧烈头痛", r"(?<!有)没有剧烈头痛", r"(?<!是)不是剧烈头痛", r"轻度头痛",
             r"偶尔隐痛", r"非剧烈头痛",
         ],
         false_positive_cases=[
@@ -181,11 +181,18 @@ class EmergencyRuleEngine:
     _CLAUSE_BOUNDARY = re.compile(
         r"[，,。；;！？!?\n]|但是|不过|然而|但|今天|现在|目前|随后|后来|刚刚"
     )
+    # Use negative lookbehinds so Chinese interrogative forms ("是不是心梗",
+    # "有没有呼吸困难", "有无胸痛") are NEVER treated as negation.
     _NEGATIVE_PREFIX = re.compile(
-        r"(?:没有|未见|并未|并非|不是|排除了?|绝无|无|未|没)"
+        r"(?:(?<!有)没有|未见|并未|并非|(?<!是)不是|排除了?|绝无|(?<!有)无|未|(?<!有)没)"
         r"(?:出现|发生|明显|任何)?\s*$"
     )
     _NEGATIVE_SUFFIX = re.compile(r"^\s*(?:已完全止血|已止|已缓解|已愈|消失|已被排除)")
+    _COORDINATED_SYMPTOM_WHITELIST = frozenset({
+        *EMERGENCY_SYMPTOM_KEYWORDS,
+        "发热", "发烧", "恶心", "呕吐", "头痛", "头晕", "咳嗽", "咳痰",
+        "乏力", "腹痛", "腹泻", "心悸", "胸闷", "气短", "出汗", "畏寒",
+    })
 
     def _occurrence_negated(
         self, clause: str, start: int, end: int, rule: EmergencyRule
@@ -199,16 +206,19 @@ class EmergencyRuleEngine:
         prefix = clause[:start]
         if self._NEGATIVE_PREFIX.search(prefix):
             return True, "命中紧邻前缀否定"
-        if re.search(r"(?:排除了?|无|未见|没有)(?:食物|一氧化碳|有机磷)$", prefix):
+        if re.search(
+            r"(?:排除了?|(?<!有)无|未见|(?<!有)没有)(?:食物|药物|酒精|煤气|农药|一氧化碳|有机磷)$",
+            prefix,
+        ):
             return True, "命中中毒类型的紧邻否定"
-        # Negation may be coordinated: "未见抽搐与昏迷". Do not extend
-        # through arbitrary words such as "无发热伴胸痛".
+        # Negation may be coordinated with explicit list separators ("未见抽搐与昏迷",
+        # "无恶心、呕吐、胸痛"), but must NOT extend across "伴" ("无发热伴胸痛").
         coordinated = re.search(
-            r"(?:没有|未见|无)([\u4e00-\u9fff、与及和]+[、与及和])$", prefix
+            r"(?:(?<!有)没有|未见|(?<!有)无)([\u4e00-\u9fff、与及和]+[、与及和])$", prefix
         )
         if coordinated:
             terms = re.split(r"[、与及和]", coordinated.group(1))
-            if all(not term or term in EMERGENCY_SYMPTOM_KEYWORDS for term in terms):
+            if all(not term or term in self._COORDINATED_SYMPTOM_WHITELIST for term in terms):
                 return True, "命中并列症状否定"
         if self._NEGATIVE_SUFFIX.search(clause[end:]):
             return True, "命中紧邻后缀否定"
@@ -222,7 +232,7 @@ class EmergencyRuleEngine:
                 # A resolved historical occurrence may be ignored; a later
                 # affirmative occurrence is still evaluated independently.
                 if (re.search(r"曾经|以前|\d+年前|小时候|既往", clause[:match.start()])
-                        and re.search(r"(?:现在|目前)(?:已经|已)?(?:完全正常|痊愈|恢复正常)", text)):
+                        and re.search(r"(?:现在|目前)(?:已经|已)?(?:完全正常|痊愈|恢复正常|好转)", text)):
                     reasons.append("历史症状且当前明确恢复正常")
                     continue
                 negated, reason = self._occurrence_negated(

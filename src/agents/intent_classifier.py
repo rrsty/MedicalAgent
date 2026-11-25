@@ -1,4 +1,7 @@
 """意图识别 Agent：LLM 分类 + Few-shot，输出 intent + confidence。"""
+import json
+
+from config.paths import KG_ENTITIES_FILE
 from config.settings import settings
 from src.agents.emergency_rules import emergency_engine
 from src.agents.safety_checker import EMERGENCY_SYMPTOM_KEYWORDS
@@ -41,8 +44,9 @@ _VALID_INTENTS = {i.value for i in IntentType}
 _DRUG_SUFFIXES = (
     "格鲁肽", "双胍", "地平", "沙坦", "拉唑", "他汀", "普利", "洛尔",
     "西林", "霉素", "头孢", "列净", "列汀", "匹林", "布洛芬", "对乙酰氨基酚",
-    "阿司匹林", "素", "多肽", "单抗", "胶囊", "片", "分散片",
-    "泡腾片", "注射液", "软膏", "滴眼液", "疫苗", "栓剂",
+    "阿司匹林", "胰岛素", "维生素", "激素", "抗生素", "多肽", "单抗",
+    "胶囊", "药片", "肠溶片", "缓释片", "分散片", "泡腾片", "含片", "咀嚼片",
+    "颗粒", "口服液", "注射液", "软膏", "乳膏", "滴眼液", "疫苗", "栓剂",
 )
 _CONCEPT_KEYWORDS = (
     "是什么", "是啥", "什么是", "怎么回事", "有什么用", "作用是什么",
@@ -71,13 +75,17 @@ _BODY_PARTS = (
     "脾", "胰", "肾", "膀胱", "尿道", "肛门", "血管", "静脉", "淋巴", "甲状腺",
     "子宫", "卵巢", "阴道", "前列腺", "睾丸",
 )
+# 独立症状词：移除「热/冷/酸/累/硬/虚/乏/抽/斑」等日常高频非医学单字，防「今天好热/好累」误拦
 _SYMPTOM_SENSATIONS = (
-    "痛", "疼", "酸", "胀", "麻", "痒", "晕", "眩", "吐", "恶心", "呕", "咳",
-    "痰", "烧", "热", "冷", "寒", "喘", "闷", "憋", "肿", "硬", "虚", "乏",
-    "累", "无力", "疲劳", "悸", "慌", "抽", "痉挛", "炎", "斑", "疱", "疹", "痘",
-    "血", "脓", "溃烂", "出汗", "盗汗", "发冷", "便秘", "拉肚子", "腹泻", "失眠",
-    "做噩梦", "食欲不振", "消瘦", "脱发", "耳鸣", "视力模糊", "口苦", "口臭",
-    "透风", "怕风", "畏寒", "发凉", "发热", "抽筋", "僵硬", "麻木", "咔咔", "弹响",
+    "痛", "疼", "胀", "麻", "痒", "晕", "眩", "吐", "恶心", "呕", "咳",
+    "痰", "发烧", "高烧", "低烧", "发热", "高热", "低热", "火烧", "烧心",
+    "发冷", "畏寒", "怕冷", "怕风", "发凉", "酸痛", "反酸", "胃酸", "酸胀",
+    "喘", "闷", "憋", "肿", "无力", "乏力", "疲劳", "疲乏", "虚弱",
+    "心悸", "堵得慌", "憋屈", "抽搐", "抽筋", "痉挛", "发炎", "炎症",
+    "红斑", "水疱", "皮疹", "红疹", "痘", "出血", "便血", "咯血", "流脓",
+    "溃烂", "出汗", "盗汗", "便秘", "拉肚子", "腹泻", "失眠", "做噩梦",
+    "食欲不振", "消瘦", "脱发", "耳鸣", "视力模糊", "口苦", "口臭",
+    "透风", "僵硬", "麻木", "咔咔", "弹响", "难受",
 )
 _MEDICAL_TESTS_INDICATORS = (
     "ct", "b超", "核磁", "mri", "心电图", "胃镜", "肠镜", "喉镜", "血常规", "尿常规",
@@ -101,17 +109,14 @@ _APPOINTMENT_KEYWORDS = (
 
 def _load_known_entities() -> tuple[set[str], set[str]]:
     try:
-        from pathlib import Path
-        import json
-        path = Path(__file__).resolve().parents[2] / "data" / "knowledge_graph" / "entities.json"
-        if path.exists():
-            data = json.loads(path.read_text(encoding="utf-8"))
+        if KG_ENTITIES_FILE.exists():
+            data = json.loads(KG_ENTITIES_FILE.read_text(encoding="utf-8"))
             diseases = {
-                e["name"] for e in data.get("entities", [])
+                e["name"].lower() for e in data.get("entities", [])
                 if e.get("type") == "Disease" and len(e.get("name", "")) >= 2
             }
             medications = {
-                e["name"] for e in data.get("entities", [])
+                e["name"].lower() for e in data.get("entities", [])
                 if e.get("type") == "Medication" and len(e.get("name", "")) >= 2
             }
             return diseases, medications
@@ -133,12 +138,7 @@ def is_potential_medical_query(query: str) -> bool:
     if any(hw in q for hw in _HISTORY_TEST_KEYWORDS):
         return False
 
-    # 2. 纯闲聊白名单短路（但排除"你好我头疼"这类以问候开头的实际医疗问题）
-    is_pure_greeting = any(q == w or q.startswith(w) for w in _PURE_CHAT_KEYWORDS)
-    if is_pure_greeting and not any(ss in q for ss in _SYMPTOM_SENSATIONS) and not any(bp in q for bp in _BODY_PARTS):
-        return False
-
-    # 3. 医学特征矩阵
+    # 2. 医学特征矩阵
     has_body = any(bp in q for bp in _BODY_PARTS)
     has_symptom = any(ss in q for ss in _SYMPTOM_SENSATIONS)
     has_test = any(ti in q for ti in _MEDICAL_TESTS_INDICATORS)
@@ -148,6 +148,13 @@ def is_potential_medical_query(query: str) -> bool:
     has_concept = any(ck in q for ck in _CONCEPT_KEYWORDS)
     has_special_pop = any(sp in q for sp in _SPECIAL_POPULATION_KEYWORDS)
     has_appointment = any(ak in q for ak in _APPOINTMENT_KEYWORDS)
+
+    # 3. 纯闲聊白名单短路（允许"你好我头疼"穿透，但放行"你好，今天好冷"/"谢谢你的关心"）
+    is_pure_greeting = any(q == w or q.startswith(w) for w in _PURE_CHAT_KEYWORDS)
+    if is_pure_greeting and not (
+        has_symptom or has_test or has_drug or has_chronic or has_appointment or has_special_pop
+    ):
+        return False
 
     if (
         (has_body and (has_symptom or has_concept or has_appointment))
@@ -190,7 +197,10 @@ def intent_classifier(state: AgentState) -> dict:
         intent = str(data.get("intent", "general")).lower()
         if intent not in _VALID_INTENTS:
             intent = IntentType.GENERAL.value
-        confidence = float(data.get("confidence", 0.5))
+        try:
+            confidence = max(0.0, min(1.0, float(data.get("confidence", 0.5))))
+        except (TypeError, ValueError):
+            confidence = 0.5
     except Exception as exc:  # noqa: BLE001
         logger.warning("意图识别 LLM 失败，降级 general: %s", exc)
         intent, confidence = IntentType.GENERAL.value, 0.3
@@ -199,17 +209,16 @@ def intent_classifier(state: AgentState) -> dict:
     if intent == IntentType.GENERAL.value:
         q_lower = query.strip().lower()
         is_history_test = any(hw in q_lower for hw in _HISTORY_TEST_KEYWORDS)
+        has_medical_signal = is_potential_medical_query(query)
         is_pure_chat = (
             any(q_lower == w or q_lower.startswith(w) for w in _PURE_CHAT_KEYWORDS)
-            and not any(ss in q_lower for ss in _SYMPTOM_SENSATIONS)
-            and not any(bp in q_lower for bp in _BODY_PARTS)
+            and not has_medical_signal
         )
 
         should_recover = False
         if not is_history_test and not is_pure_chat:
-            # 条件一：命中全量医学特征网（器官/感觉/化验/药物/慢病/特殊人群）
-            # 条件二：或者模型置信度偏低（confidence <= 0.75 且非纯闲聊，模型犹豫不决）
-            if is_potential_medical_query(query) or (confidence <= 0.75 and len(query) >= 4):
+            # 仅在命中明确医学特征网时才强制纠偏，避免低置信度日常闲聊被误拦进医学知识库
+            if has_medical_signal:
                 should_recover = True
 
         if should_recover:

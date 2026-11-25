@@ -12,7 +12,7 @@ from src.agents.emergency_rules import (
     EmergencyEvaluationResult,
     emergency_engine,
 )
-from src.agents.state import AgentState, IntentType
+from src.agents.state import AgentState, IntentType, Severity
 from src.common.logger import setup_logger
 
 logger = setup_logger("agent.safety", "agents.log")
@@ -23,11 +23,27 @@ EMERGENCY_WARNING = "🚨 您的症状可能属于急症，请立即拨打 120 �
 
 MEDICATION_SAFETY_REMINDER = "💊 用药安全提醒：请务必遵医嘱用药，用法用量与药物联用请咨询医生或药师。"
 
+_PREGNANCY_REMINDER = "🤰 您提到的情况如涉及孕妇/孕哺期，用药需特别谨慎，请务必在产科医生指导下进行。"
+_PEDIATRIC_REMINDER = "👶 涉及儿童/婴幼儿用药时，剂量与药物选择与成人不同，请务必遵儿科医嘱。"
+_ELDERLY_REMINDER = "👴 老年人用药需考虑肝肾功能，建议在医生指导下调整剂量。"
+
 SPECIAL_POPULATION_REMINDERS = {
-    "孕妇": "🤰 您提到的情况如涉及孕妇，用药需特别谨慎，请务必在产科医生指导下进行。",
-    "怀孕": "🤰 您提到的情况如涉及孕妇，用药需特别谨慎，请务必在产科医生指导下进行。",
-    "儿童": "👶 涉及儿童用药时，剂量与药物选择与成人不同，请务必遵儿科医嘱。",
-    "老人": "👴 老年人用药需考虑肝肾功能，建议在医生指导下调整剂量。",
+    "孕妇": _PREGNANCY_REMINDER,
+    "怀孕": _PREGNANCY_REMINDER,
+    "孕期": _PREGNANCY_REMINDER,
+    "孕周": _PREGNANCY_REMINDER,
+    "哺乳期": _PREGNANCY_REMINDER,
+    "哺乳": _PREGNANCY_REMINDER,
+    "备孕": _PREGNANCY_REMINDER,
+    "产后": _PREGNANCY_REMINDER,
+    "儿童": _PEDIATRIC_REMINDER,
+    "婴儿": _PEDIATRIC_REMINDER,
+    "幼儿": _PEDIATRIC_REMINDER,
+    "宝宝": _PEDIATRIC_REMINDER,
+    "小孩": _PEDIATRIC_REMINDER,
+    "老人": _ELDERLY_REMINDER,
+    "老年人": _ELDERLY_REMINDER,
+    "高龄": _ELDERLY_REMINDER,
 }
 
 # 急症规则与关键词 —— 单一事实来源从 emergency_rules 导入并对外提供
@@ -60,9 +76,13 @@ class SafetyCheckerAgent:
         disclaimers: list[str] = [DISCLAIMER]
         warnings: list[str] = []
 
-        # 急症判定：演示规则库匹配 + 否定过滤
+        # 急症判定：显式急症意图 OR 症状检测升级 severity==emergency OR 规则引擎命中
         eval_result = self.evaluate_emergency(symptoms, query)
-        is_emergency = intent == IntentType.EMERGENCY.value or eval_result.is_emergency
+        is_emergency = (
+            intent == IntentType.EMERGENCY.value
+            or state.get("severity") == Severity.EMERGENCY.value
+            or eval_result.is_emergency
+        )
         if is_emergency:
             warnings.append(EMERGENCY_WARNING)
 
@@ -70,19 +90,25 @@ class SafetyCheckerAgent:
         if intent == IntentType.MEDICATION.value or medications:
             disclaimers.append(MEDICATION_SAFETY_REMINDER)
 
-        # 特殊人群提示：检查当前 query 以及多轮对话历史（保持特殊人群生理状态连续性）
+        # 特殊人群提示：仅检查当前 query 及历史中的**用户**消息，避免助手回复里的「孕妇慎用」误污染后续轮次
         history = state.get("history", [])
-        combined_text = query + " " + " ".join(str(t.get("content", "")) for t in history[-4:])
+        user_history_text = " ".join(
+            str(t.get("content", ""))
+            for t in history[-6:]
+            if isinstance(t, dict) and t.get("role") == "user"
+        )
+        combined_text = f"{query} {user_history_text}".strip()
+        seen_reminders: set[str] = set()
         for keyword, reminder in SPECIAL_POPULATION_REMINDERS.items():
-            if keyword in combined_text:
+            if keyword in combined_text and reminder not in seen_reminders:
                 disclaimers.append(reminder)
-                break
+                seen_reminders.add(reminder)
 
         logger.info(
             "安全检查: intent=%s emergency=%s disclaimers=%d warnings=%d | %s",
             intent, is_emergency, len(disclaimers), len(warnings), eval_result.audit_summary,
         )
-        return {
+        result: dict = {
             "disclaimers": disclaimers,
             "warnings": warnings,
             "emergency_audit": {
@@ -92,3 +118,7 @@ class SafetyCheckerAgent:
                 "guidelines": eval_result.guideline_sources,
             },
         }
+        if is_emergency:
+            result["intent"] = IntentType.EMERGENCY.value
+            result["severity"] = Severity.EMERGENCY.value
+        return result
