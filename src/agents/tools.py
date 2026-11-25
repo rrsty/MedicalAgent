@@ -8,6 +8,7 @@
 """
 from langchain_core.tools import tool
 
+from config.settings import settings
 from src.knowledge_graph.graph_queries import GraphQueries
 from src.knowledge_graph.text2cypher import natural_language_query
 from src.vector_store.search import get_shared_retriever
@@ -16,6 +17,7 @@ from src.common.provenance import format_context_with_provenance
 _INTERACTION_NOTICE = (
     "本系统未内置完整药物相互作用库，联用风险请以药师/权威数据库为准，切勿自行合用。"
 )
+_SHARED_QUERIES = GraphQueries()
 
 
 @tool
@@ -23,7 +25,7 @@ def search_knowledge_graph(entity: str) -> str:
     """根据疾病或症状名，查询知识图谱，返回其科室/症状/药物/检查摘要。
     当用户问到某疾病的科室、症状、用药、检查，或某症状对应哪些疾病时使用。"""
     try:
-        queries = GraphQueries()
+        queries = _SHARED_QUERIES
         expansion = queries.expand_multihop(entity)
         if expansion.get("triples"):
             return "\n".join(
@@ -78,7 +80,7 @@ def get_medication_info(name: str) -> str:
     """查询指定药物的详细信息：类别、副作用、禁忌、适应疾病、相互作用。
     当用户问到某个具体药物的副作用、禁忌或是否适合自己时使用。"""
     try:
-        queries = GraphQueries()
+        queries = _SHARED_QUERIES
         info = queries.get_medication_info(name)
         if not info:
             return f"未找到药物「{name}」的信息。请注意：请勿自行用药，务必遵医嘱。"
@@ -123,18 +125,22 @@ def natural_language_graph_query(query: str) -> str:
         if not rows:
             return "图谱中没有查询到相关数据"
         lines = [f"查询结果（{len(rows)} 行）："]
+        if columns:
+            lines.append(" | ".join(str(c) for c in columns))
         for row in rows:
             lines.append(" | ".join(str(v) for v in row))
-        return "\n".join(lines)
+        return format_context_with_provenance("\n".join(lines))
     except Exception as exc:  # noqa: BLE001
         return f"查询失败：{exc}"
 
 
 def get_react_tools() -> list:
     """ReAct 层工具集（settings.enable_react_layer 开启时使用）。"""
-    return [
+    tools = [
         search_knowledge_graph,
         semantic_search,
         get_medication_info,
-        natural_language_graph_query,
     ]
+    if settings.text2cypher_enabled:
+        tools.append(natural_language_graph_query)
+    return tools

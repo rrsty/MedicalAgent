@@ -77,11 +77,14 @@ class MedicationAdvisor:
                 ("human", f"患者情况：{query}\n候选药物：{candidate_text}"),
             ])
             data = parse_llm_json(resp.content) or {}
+            allowed_names = {m["name"] for m in candidates}
             meds = []
             max_count = 3 if is_pregnant else 5
             for item in data.get("medications", [])[:max_count]:
+                if not isinstance(item, dict):
+                    continue
                 name = str(item.get("name", "")).strip()
-                if not name:
+                if not name or name not in allowed_names:
                     continue
                 meds.append({
                     "name": name,
@@ -110,12 +113,15 @@ class MedicationAdvisor:
         symptoms = state.get("symptoms", [])
         history = state.get("history", [])
 
-        # 检查多轮对话是否涉及孕妇等特殊人群
-        is_pregnant = any(
-            kw in query for kw in ("孕妇", "怀孕", "孕期", "孕周", "产后", "哺乳期", "备孕")
-        ) or any(
-            any(kw in str(t.get("content", "")) for kw in ("孕妇", "怀孕", "孕期", "孕周"))
-            for t in history[-4:]
+        # 检查多轮对话是否涉及孕哺期（仅检查用户消息，避免助手回复中的「孕妇慎用」串扰）
+        pregnancy_kws = ("孕妇", "怀孕", "孕期", "孕周", "产后", "哺乳期", "哺乳", "备孕")
+        user_history_texts = [
+            str(t.get("content", ""))
+            for t in history[-6:]
+            if isinstance(t, dict) and t.get("role") == "user"
+        ]
+        is_pregnant = any(kw in query for kw in pregnancy_kws) or any(
+            any(kw in text for kw in pregnancy_kws) for text in user_history_texts
         )
 
         candidates = self._kg_meds(symptoms, query)

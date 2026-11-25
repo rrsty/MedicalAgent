@@ -15,7 +15,7 @@ import json
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 
 from config.settings import settings
-from src.agents.state import AgentState
+from src.agents.state import AgentState, IntentType
 from src.common.context_window import compact_text, format_context_items, format_history_block
 from src.common.llm import get_llm
 from src.common.logger import setup_logger
@@ -33,10 +33,24 @@ SAFE_DEFERRAL = (
 
 _GENERAL_NO_KB_NOTICE = "（以下内容来自模型通用知识，非本系统知识库检索结果，仅供参考）"
 
+_INTERACTION_RISK_KEYWORDS = ("相互作用", "一起吃", "合用", "联用")
+_DOSAGE_RISK_KEYWORDS = ("剂量", "用量多少", "吃多少", "过量")
+_PREGNANCY_RISK_KEYWORDS = ("怀孕", "孕妇", "哺乳")
+_ALCOHOL_RISK_KEYWORDS = ("饮酒", "喝酒")
+_CONTRAINDICATION_RISK_KEYWORDS = ("禁忌", "过敏")
+
 HIGH_RISK_KEYWORDS = [
-    "相互作用", "一起吃", "合用", "联用", "剂量", "用量多少", "吃多少",
-    "过量", "禁忌", "过敏", "饮酒", "喝酒", "怀孕", "孕妇", "哺乳",
+    *_INTERACTION_RISK_KEYWORDS,
+    *_DOSAGE_RISK_KEYWORDS,
+    *_CONTRAINDICATION_RISK_KEYWORDS,
+    *_ALCOHOL_RISK_KEYWORDS,
+    *_PREGNANCY_RISK_KEYWORDS,
 ]
+
+_FOLLOWUP_CUES = (
+    "它", "这个", "这种", "那个", "该病", "这药", "那药", "怎么", "如何",
+    "还有", "副作用", "禁忌", "注意", "吃什么", "能吃吗", "用什么", "会传染",
+)
 
 _GROUNDED_SYSTEM_PROMPT = """你是一个严谨的医学科普专家。请**仅依据**下面提供的检索到的知识库内容回答用户问题。
 
@@ -124,10 +138,20 @@ class MedicalKnowledgeAgent:
                 name = call["name"]
                 tool_names.append(name)
                 tool = tools.get(name)
-                content = (str(tool.invoke(call["args"])) if tool
-                           else f"查询失败：未知工具 {name}")
+                if tool is None:
+                    content = f"查询失败：未知工具 {name}"
+                else:
+                    try:
+                        content = str(tool.invoke(call["args"]))
+                    except Exception as exc:  # noqa: BLE001
+                        content = f"查询失败：{exc}"
                 messages.append(ToolMessage(content=content, tool_call_id=call["id"]))
-                if content and "查询失败" not in content and "未找到" not in content:
+                if (
+                    content
+                    and "查询失败" not in content
+                    and "未找到" not in content
+                    and "图谱中没有查询到相关数据" not in content
+                ):
                     tool_contexts.append(content)
         raise RuntimeError("ReAct step budget exhausted; use grounded fallback")
 
@@ -136,7 +160,31 @@ class MedicalKnowledgeAgent:
     def _is_high_risk(query: str) -> bool:
         return any(kw in query for kw in HIGH_RISK_KEYWORDS)
 
-    def _general_knowledge_fallback(self, query: str) -> str:
+    @staticmethod
+    def _has_high_risk_evidence(query: str, contexts: list[str]) -> bool:
+        """检查检索上下文是否包含高风险问题所需的直接证据（剥离来源标注后核验）。"""
+        if not contexts:
+            return False
+        # 知识图谱不存临床给药剂量表，剂量/过量类高风险问题一律交由医生/药师
+        if any(kw in query for kw in _DOSAGE_RISK_KEYWORDS):
+            return False
+
+        bodies = [c.split("[数据源:", 1)[0] for c in contexts]
+        if any(kw in query for kw in _INTERACTION_RISK_KEYWORDS):
+            if not any("INTERACTS_WITH" in b or "已知相互作用药物" in b for b in bodies):
+                return False
+        if any(kw in query for kw in _PREGNANCY_RISK_KEYWORDS):
+            if not any(tok in b for b in bodies for tok in ("孕妇", "妊娠", "孕期", "哺乳")):
+                return False
+        if any(kw in query for kw in _ALCOHOL_RISK_KEYWORDS):
+            if not any(tok in b for b in bodies for tok in ("酒精", "饮酒", "喝酒")):
+                return False
+        if any(kw in query for kw in _CONTRAINDICATION_RISK_KEYWORDS):
+            if not any(tok in b for b in bodies for tok in ("禁忌:", "禁忌：", "AVOIDS_FOOD", "过敏")):
+                return False
+        return True
+
+    def _general_knowledge_fallback(self, query: str, history: list | None = None) -> str:
         try:
             resp = get_llm(0.3).invoke([
                 (
@@ -144,7 +192,7 @@ class MedicalKnowledgeAgent:
                     "你是医学科普专家。知识库检索没有命中，请用你自己的通用医学知识谨慎回答。"
                     "不提供诊断结论，涉及用药提醒遵医嘱。用通俗中文回答。",
                 ),
-                ("human", query),
+                ("human", f"{_history_block(history)}用户问题：{query}"),
             ])
             return f"{_GENERAL_NO_KB_NOTICE}\n\n{resp.content}"
         except Exception as exc:  # noqa: BLE001
@@ -158,14 +206,15 @@ class MedicalKnowledgeAgent:
         history = state.get("history", [])
         trace: list[dict] = []
 
-        # 多轮指代软消解（P1-9）：把最近一条用户消息拼进检索词，
-        # 让「它该用什么药」能借上一轮「什么是糖尿病」命中图谱实体
+        # 多轮指代软消解（P1-9）：仅在当前问句为短追问或含指代词时拼入上一轮用户消息，
+        # 避免话题切换（如「什么是糖尿病」→「什么是偏头痛」）污染检索上下文
         last_user = next(
             (t.get("content", "") for t in reversed(history) if t.get("role") == "user"),
             "",
         )
+        is_followup = len(query.strip()) <= 12 or any(cue in query for cue in _FOLLOWUP_CUES)
         retrieval_query = query
-        if last_user and last_user != query:
+        if last_user and last_user != query and is_followup:
             previous_user = compact_text(last_user, 240, tail_ratio=0.35)
             retrieval_query = f"{query} {previous_user}"
             trace.append({"node": "medical_knowledge", "step": "context_merge",
@@ -176,7 +225,7 @@ class MedicalKnowledgeAgent:
         trace.append({"node": "medical_knowledge", "step": "forced_retrieval",
                       "entities": len(entities), "contexts": len(contexts)})
 
-        # Step 0 实体链接（检索后精修：锚点 = 检索命中实体名 + 症状 + 问题）
+        # Step 0 实体链接（检索后精修：锚点 = 症状 + 原始问句，避免已命中实体自链接噪音）
         linked: list[dict] = []
         try:
             anchor_terms = [e["name"] for e in entities] + symptoms + [query]
@@ -184,8 +233,11 @@ class MedicalKnowledgeAgent:
         except Exception as exc:  # noqa: BLE001
             logger.debug("实体链接失败（不阻断）: %s", exc)
 
-        # 生成回答
-        if contexts:
+        # 生成回答：高风险用药安全问题必须具备直接图谱证据，否则强制拒答（防弱相关实体绕过）
+        if self._is_high_risk(query) and not self._has_high_risk_evidence(query, contexts):
+            answer = SAFE_DEFERRAL
+            trace.append({"node": "medical_knowledge", "step": "high_risk_refusal"})
+        elif contexts:
             # 有检索结果 → grounded；可选叠加 ReAct 多跳
             if settings.enable_react_layer:
                 try:
@@ -207,23 +259,23 @@ class MedicalKnowledgeAgent:
             else:
                 answer = self._grounded_static_answer(query, contexts, history)
                 trace.append({"node": "medical_knowledge", "step": "grounded_only"})
-        elif self._is_high_risk(query):
-            # 高风险 + 检索空 → 绝不臆测，直接拒答引导就医
-            answer = SAFE_DEFERRAL
-            trace.append({"node": "medical_knowledge", "step": "high_risk_refusal"})
         else:
             # 一般知识题 + 检索空 → LLM 通用知识并标注
-            answer = self._general_knowledge_fallback(query)
+            answer = self._general_knowledge_fallback(query, history)
             trace.append({"node": "medical_knowledge", "step": "general_fallback"})
 
         logger.info("医学知识回答完成（contexts=%d, linked=%d）", len(contexts), len(linked))
-        return {
+        out: dict = {
             "knowledge_answer": answer,
             "retrieved_entities": entities,
             "retrieved_contexts": contexts,
             "linked_entities": linked,
             "trace": trace,
         }
+        # 若由路由层医疗兜底门从 general 切入本节点，同步修正 intent 保证状态与输出一致
+        if state.get("intent") == IntentType.GENERAL.value:
+            out["intent"] = IntentType.KNOWLEDGE.value
+        return out
 
     # ---------- grounded 静态生成（ReAct 关闭/失败时的兜底）----------
     def _grounded_static_answer(

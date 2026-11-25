@@ -5,7 +5,7 @@
 """
 import json
 
-from src.agents.state import AgentState
+from src.agents.state import AgentState, IntentType, Severity
 from src.common.llm import get_llm
 from src.common.logger import setup_logger
 
@@ -42,7 +42,7 @@ class AnswerFusion:
         intent = state.get("intent", "")
 
         # 1. 挂号与就诊建议
-        if intent == "appointment":
+        if intent == IntentType.APPOINTMENT.value:
             if state.get("symptoms"):
                 parts.append(f"**检测到的症状**：{'、'.join(state['symptoms'])}")
             if state.get("departments"):
@@ -91,12 +91,29 @@ class AnswerFusion:
         if state.get("needs_clarification"):
             return {"final_answer": self._clarification_answer(state)}
 
-        # emergency：安全警告已足够，直接确定性拼装（快，且绝不稀释警告）
-        if state.get("intent") == "emergency":
+        # 急症（含急症强制升级门/症状检测升级）：直接确定性拼装，快且绝不稀释急症警告
+        is_emergency = (
+            state.get("intent") == IntentType.EMERGENCY.value
+            or state.get("severity") == Severity.EMERGENCY.value
+            or bool(state.get("warnings"))
+            or bool((state.get("emergency_audit") or {}).get("is_emergency"))
+        )
+        if is_emergency:
+            return {"final_answer": self._deterministic_fallback(state)}
+
+        # 单源医学知识直出：MedicalKnowledgeAgent 已完成接地回答，避免二次 LLM 改写增加延迟或引入幻觉
+        if (
+            state.get("intent") == IntentType.KNOWLEDGE.value
+            and str(state.get("knowledge_answer") or "").strip()
+            and not state.get("departments")
+            and not state.get("medications")
+            and not state.get("advice")
+        ):
             return {"final_answer": self._deterministic_fallback(state)}
 
         try:
             context_sections = {
+                "query": state.get("query", ""),
                 "intent": state.get("intent", ""),
                 "symptoms": state.get("symptoms", []),
                 "departments": state.get("departments", []),
@@ -113,10 +130,16 @@ class AnswerFusion:
             final_answer = resp.content.strip()
             if not final_answer:
                 raise ValueError("LLM 返回空回答")
-            # 确保免责声明在末尾（LLM 可能漏掉）
+            # 逐条补齐缺失的安全警告（置顶）与免责声明（置底），避免 LLM 漏掉用药/特殊人群提醒
+            warnings = state.get("warnings", [])
+            missing_warnings = [w for w in warnings if w[:12] not in final_answer]
+            if missing_warnings:
+                final_answer = "\n".join(missing_warnings) + "\n\n" + final_answer
+
             disclaimers = state.get("disclaimers", [])
-            if disclaimers and not any(d[:12] in final_answer for d in disclaimers):
-                final_answer += "\n\n---\n" + "\n\n".join(disclaimers)
+            missing_disclaimers = [d for d in disclaimers if d[:12] not in final_answer]
+            if missing_disclaimers:
+                final_answer += "\n\n---\n" + "\n\n".join(missing_disclaimers)
         except Exception as exc:  # noqa: BLE001
             logger.warning("答案融合 LLM 失败，使用确定性拼装兜底: %s", exc)
             final_answer = self._deterministic_fallback(state)

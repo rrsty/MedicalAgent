@@ -13,7 +13,7 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from langgraph.graph import END, START, StateGraph
 
@@ -25,7 +25,7 @@ from src.agents.medical_knowledge import MedicalKnowledgeAgent
 from src.agents.medication_advisor import MedicationAdvisor
 from src.agents.pre_visit_advisor import pre_visit_advisor
 from src.agents.safety_checker import EMERGENCY_SYMPTOM_KEYWORDS, SafetyCheckerAgent
-from src.agents.state import AgentState, IntentType
+from src.agents.state import AgentState, IntentType, Severity
 from src.agents.symptom_detector import symptom_detector
 from src.common.logger import setup_logger
 
@@ -82,7 +82,7 @@ def route_after_symptom(state: AgentState) -> str:
     intent = state.get("intent", "")
     symptoms = state.get("symptoms", [])
 
-    if state.get("severity") == "emergency":
+    if state.get("severity") == Severity.EMERGENCY.value:
         return "safety_checker"        # 症状检测升级急症 → 安全检查
 
     if intent == IntentType.APPOINTMENT.value:
@@ -91,6 +91,13 @@ def route_after_symptom(state: AgentState) -> str:
         # medication 无症状锚点 → 医学知识 grounded-ReAct（迭代收窄追问策略）
         return "medication_advisor" if symptoms else "medical_knowledge"
     return "safety_checker"
+
+
+def route_after_department(state: AgentState) -> str:
+    """科室推荐后的路由：信息不足需追问时直接进安全检查，跳过无意义的就医指导 LLM 调用。"""
+    if state.get("needs_clarification"):
+        return "safety_checker"
+    return "pre_visit_advisor"
 
 
 # ---------- 组装状态图 ----------
@@ -128,7 +135,14 @@ def build_app():
             "safety_checker": "safety_checker",
         },
     )
-    graph.add_edge("department_recommender", "pre_visit_advisor")
+    graph.add_conditional_edges(
+        "department_recommender",
+        route_after_department,
+        {
+            "pre_visit_advisor": "pre_visit_advisor",
+            "safety_checker": "safety_checker",
+        },
+    )
     graph.add_edge("pre_visit_advisor", "safety_checker")
     graph.add_edge("medication_advisor", "safety_checker")
     graph.add_edge("medical_knowledge", "safety_checker")

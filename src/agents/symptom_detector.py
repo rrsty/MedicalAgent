@@ -11,6 +11,15 @@ from src.common.logger import setup_logger
 logger = setup_logger("agent.symptom", "agents.log")
 
 
+_VALID_SEVERITIES = {s.value for s in Severity}
+# 仅当问句出现身体不适线索（而非纯疾病/药物名问法如「高血压吃什么药」）时，空症状才值得重试
+_DISCOMFORT_HINTS = (
+    "痛", "疼", "晕", "咳", "喘", "闷", "吐", "恶心", "发烧", "发热",
+    "痒", "麻", "肿", "胀", "出血", "便血", "血尿", "咯血", "拉肚子", "腹泻",
+    "便秘", "失眠", "不舒服", "难受",
+)
+
+
 class SymptomDetection(BaseModel):
     """症状检测结果（结构化输出契约）。"""
 
@@ -23,6 +32,12 @@ class SymptomDetection(BaseModel):
     def _coerce_symptoms(cls, v):
         # DeepSeek 偶发返回 [{"name": "头痛", ...}] 对象数组，归一为字符串列表
         return coerce_str_list(v)
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def _validate_severity(cls, v):
+        val = str(v or "").strip().lower()
+        return val if val in _VALID_SEVERITIES else Severity.LOW.value
 
 
 SYSTEM_PROMPT = """你是一个症状分析专家。从用户描述中提取症状信息。
@@ -72,10 +87,14 @@ def symptom_detector(state: AgentState) -> dict:
         detection = _detect(human_input)
         symptoms = [s.strip() for s in detection.symptoms if s.strip()]
 
-        # LLM 偶发漏提（thinking 模式过保守）：能走到这里的 query 意图必为
-        # appointment/medication，空结果先按 few-shot 加强重试一次再接受
-        if not symptoms:
-            logger.info("症状检测为空，few-shot 加强重试")
+        # 仅当问句存在明确不适线索（或依赖历史指代）且首抽为空时才加强重试，
+        # 避免「高血压吃什么药」「糖尿病用什么药」等疾病直查类问题白跑第二次 LLM 调用
+        should_retry = not symptoms and (
+            any(h in query for h in _DISCOMFORT_HINTS)
+            or any(p in query for p in ("它", "那", "这个", "这种"))
+        )
+        if should_retry:
+            logger.info("症状检测为空但含不适线索，few-shot 加强重试")
             retry_text = (
                 f"{context_block}请从下面这段话里提取全部**明确的身体症状**"
                 f"（如疼痛、发热、出血、麻木等），没有症状才返回空列表：\n{query}"
@@ -83,8 +102,10 @@ def symptom_detector(state: AgentState) -> dict:
             detection = _detect(retry_text)
             symptoms = [s.strip() for s in detection.symptoms if s.strip()]
 
+        # 症状归一化后二次复核急症规则（如口语转「胸痛」时立即升级）
+        post_keyword_hit = keyword_hit or emergency_engine.evaluate(query, symptoms).is_emergency
         severity = detection.severity
-        if detection.has_emergency_keyword or keyword_hit:
+        if detection.has_emergency_keyword or post_keyword_hit:
             severity = Severity.EMERGENCY.value
     except Exception as exc:  # noqa: BLE001
         logger.warning("症状检测 LLM 失败: %s", exc)
