@@ -52,13 +52,27 @@ class VectorRetriever:
             return
         # Native Windows FAISS file APIs cannot reliably open Unicode paths.
         self._index = faiss.deserialize_index(np.frombuffer(INDEX_FILE.read_bytes(), dtype="uint8"))
-        self._index.nprobe = settings.faiss_nprobe
+        # IndexFlatIP（小数据集回退）无 nprobe 属性，必须防护以免启动崩溃
+        if hasattr(self._index, "nprobe"):
+            self._index.nprobe = settings.faiss_nprobe
         if INDEX_ENTITY_MAPPING_FILE.exists():
             data = read_json(INDEX_ENTITY_MAPPING_FILE)
             self._entities = data.get("entities", [])
+        if self._index.d != settings.embedding_dim:
+            logger.error(
+                "R4 维度不一致: faiss.d=%d != settings.embedding_dim=%d",
+                self._index.d, settings.embedding_dim,
+            )
+        if self._index.ntotal != len(self._entities):
+            logger.warning(
+                "R5 索引/映射数量不一致: index.ntotal=%d != mapping=%d（请重跑 scripts/build_index.py）",
+                self._index.ntotal, len(self._entities),
+            )
         logger.info(
             "FAISS index loaded: %d vectors (nlist=%s, nprobe=%s)",
-            self._index.ntotal, getattr(self._index, "nlist", "-"), self._index.nprobe,
+            self._index.ntotal,
+            getattr(self._index, "nlist", "-"),
+            getattr(self._index, "nprobe", "-"),
         )
         logger.info("Entity mapping loaded: %d entities", len(self._entities))
 
@@ -120,24 +134,31 @@ class VectorRetriever:
         """
         if not self.is_ready or not terms:
             return []
+        unique_terms = list(dict.fromkeys(t.strip() for t in terms if str(t or "").strip()))
+        if not unique_terms:
+            return []
         th = threshold if threshold is not None else settings.entity_link_threshold
         try:
-            term_vecs = self._encode(list(terms))
+            term_vecs = self._encode(unique_terms)
             sims, idxs = self._index.search(term_vecs, 1)
-            linked = []
-            for term, sim, idx in zip(terms, sims[:, 0], idxs[:, 0]):
+            by_matched: dict[str, dict] = {}
+            for term, sim, idx in zip(unique_terms, sims[:, 0], idxs[:, 0]):
                 if idx < 0 or idx >= len(self._entities):
                     continue
                 if sim < th:
                     continue
                 entity = self._entities[int(idx)]
-                linked.append({
-                    "input_entity": term,
-                    "matched_entity": entity["name"],
-                    "type": entity.get("type", ""),
-                    "similarity": round(float(sim), 4),
-                })
-            return linked
+                matched_name = entity["name"]
+                score = round(float(sim), 4)
+                prev = by_matched.get(matched_name)
+                if prev is None or score > prev["similarity"]:
+                    by_matched[matched_name] = {
+                        "input_entity": term,
+                        "matched_entity": matched_name,
+                        "type": entity.get("type", ""),
+                        "similarity": score,
+                    }
+            return list(by_matched.values())
         except Exception as exc:  # noqa: BLE001
             logger.warning("实体链接失败（不阻断主流程）: %s", exc)
             return []
@@ -145,35 +166,32 @@ class VectorRetriever:
     def hybrid_search(self, query: str, top_k: int | None = None) -> dict:
         """混合检索：向量语义召回 + Neo4j 图谱精确扩展。
 
-        返回 {entities: [...], contexts: [...]}；
-        contexts 为可直接喂给 LLM 的文本片段（RAGAS 的 retrieved_contexts）。
+        上下文排序策略：先输出各召回实体的紧凑结构化摘要与描述，再补充去重后的多跳三元组，
+        防止第 1 个实体的海量零散三元组占满上下文窗口配额（max_items=10）而挤掉其余实体。
         """
         entities = self.search(query, top_k)
-        contexts: list[str] = []
+        summary_contexts: list[str] = []
+        triple_contexts: list[str] = []
         queries = GraphQueries()
 
         seen = set()
+        seen_triples: set[tuple] = set()
         for entity in entities:
-            key = (entity.get("type"), entity.get("name"))
-            if key in seen:
+            etype = entity.get("type")
+            ename = entity.get("name", "")
+            key = (etype, ename)
+            if key in seen or not ename:
                 continue
             seen.add(key)
+
+            # 1) 实体摘要与结构化一跳全览（高信息密度，优先进入 LLM 上下文窗口）
             desc = (entity.get("description") or "").strip()
             if desc:
-                contexts.append(format_context_with_provenance(
-                    f"{entity['name']}（{entity['type']}）：{desc}", entity.get("provenance")
+                summary_contexts.append(format_context_with_provenance(
+                    f"{ename}（{etype}）：{desc}", entity.get("provenance")
                 ))
 
-            expansion = queries.expand_multihop(
-                entity.get("name", ""), entity_type=entity.get("type")
-            )
-            for triple in expansion.get("triples", []):
-                contexts.append(format_context_with_provenance(
-                    f"({triple['subject']})-[:{triple['predicate']}]->({triple['object']})",
-                    triple.get("provenance"),
-                ))
-
-            facts = queries.expand_entity(entity.get("name", ""))
+            facts = queries.expand_entity(ename, entity_type=etype)
             fact_map = facts.get("facts", {})
             if facts.get("type") == "Disease":
                 parts = []
@@ -185,12 +203,21 @@ class VectorRetriever:
                     parts.append("常用药物: " + "、".join(fact_map["medications"][:8]))
                 if fact_map.get("examinations"):
                     parts.append("相关检查: " + "、".join(fact_map["examinations"][:6]))
+                if fact_map.get("precautions"):
+                    parts.append("注意事项: " + "、".join(fact_map["precautions"][:6]))
+                if fact_map.get("recommended_foods"):
+                    parts.append("推荐饮食: " + "、".join(fact_map["recommended_foods"][:6]))
+                if fact_map.get("avoid_foods"):
+                    parts.append("忌口/禁忌食物: " + "、".join(fact_map["avoid_foods"][:6]))
                 if parts:
-                    contexts.append(f"{entity['name']}（疾病）：{ '；'.join(parts) }")
+                    summary_contexts.append(format_context_with_provenance(
+                        f"{ename}（疾病）：{'；'.join(parts)}", entity.get("provenance")
+                    ))
             elif facts.get("type") == "Symptom" and fact_map.get("diseases"):
-                contexts.append(
-                    f"{entity['name']}（症状）可能提示: " + "、".join(fact_map["diseases"][:8])
-                )
+                summary_contexts.append(format_context_with_provenance(
+                    f"{ename}（症状）可能提示: " + "、".join(fact_map["diseases"][:8]),
+                    entity.get("provenance"),
+                ))
             elif facts.get("type") == "Medication":
                 parts = []
                 if fact_map.get("category"):
@@ -207,9 +234,30 @@ class VectorRetriever:
                     parts.append("禁忌: " + "、".join(cons[:6]))
                 if fact_map.get("treats"):
                     parts.append("用于治疗: " + "、".join(fact_map["treats"][:6]))
+                if fact_map.get("interactions"):
+                    parts.append("已知相互作用药物: " + "、".join(fact_map["interactions"][:6]))
                 if parts:
-                    contexts.append(f"{entity['name']}（药物）：{ '；'.join(parts) }")
+                    summary_contexts.append(format_context_with_provenance(
+                        f"{ename}（药物）：{'；'.join(parts)}", entity.get("provenance")
+                    ))
 
+            # 2) 受控多跳三元组（每实体保留前 4 条去重高价值关系，兼顾多实体覆盖）
+            expansion = queries.expand_multihop(ename, entity_type=etype)
+            added_for_entity = 0
+            for triple in expansion.get("triples", []):
+                tkey = (triple.get("subject"), triple.get("predicate"), triple.get("object"))
+                if tkey in seen_triples:
+                    continue
+                seen_triples.add(tkey)
+                triple_contexts.append(format_context_with_provenance(
+                    f"({triple['subject']})-[:{triple['predicate']}]->({triple['object']})",
+                    triple.get("provenance"),
+                ))
+                added_for_entity += 1
+                if added_for_entity >= 4:
+                    break
+
+        contexts = list(dict.fromkeys([*summary_contexts, *triple_contexts]))
         contexts = [c if "[数据源:" in c else format_context_with_provenance(c)
                     for c in contexts]
         return {"entities": entities, "contexts": contexts}

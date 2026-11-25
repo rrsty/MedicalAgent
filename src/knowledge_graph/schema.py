@@ -36,7 +36,8 @@ class RelationType(str, Enum):
     INTERACTS_WITH = "INTERACTS_WITH"                    # Medication → Medication
     NEEDS_EXAMINATION = "NEEDS_EXAMINATION"              # Disease → Examination
     AFFECTS_BODY_PART = "AFFECTS_BODY_PART"              # Disease → BodyPart
-    RECOMMENDS_FOOD = "RECOMMENDS_FOOD"                  # Disease → Food
+    RECOMMENDS_FOOD = "RECOMMENDS_FOOD"                  # Disease → Food（推荐）
+    AVOIDS_FOOD = "AVOIDS_FOOD"                          # Disease → Food（禁忌/忌口）
     HAS_PRECAUTION = "HAS_PRECAUTION"                    # Disease → Precaution
 
 
@@ -65,6 +66,7 @@ RELATION_ENDPOINTS: dict[str, tuple[str, str]] = {
     RelationType.NEEDS_EXAMINATION: (NodeType.DISEASE, NodeType.EXAMINATION),
     RelationType.AFFECTS_BODY_PART: (NodeType.DISEASE, NodeType.BODY_PART),
     RelationType.RECOMMENDS_FOOD: (NodeType.DISEASE, NodeType.FOOD),
+    RelationType.AVOIDS_FOOD: (NodeType.DISEASE, NodeType.FOOD),
     RelationType.HAS_PRECAUTION: (NodeType.DISEASE, NodeType.PRECAUTION),
 }
 
@@ -87,6 +89,7 @@ RELATION_DATA_FIELDS: dict[str, tuple[str, str]] = {
     RelationType.NEEDS_EXAMINATION: ("disease_name", "examination_name"),
     RelationType.AFFECTS_BODY_PART: ("disease_name", "body_part_name"),
     RelationType.RECOMMENDS_FOOD: ("disease_name", "food_name"),
+    RelationType.AVOIDS_FOOD: ("disease_name", "food_name"),
     RelationType.HAS_PRECAUTION: ("disease_name", "precaution_content"),
 }
 
@@ -101,5 +104,5 @@ def generate_llm_schema_text() -> str:
     for rel_type, (start, end) in RELATION_ENDPOINTS.items():
         lines.append(f"  - (:{start.value})-[:{rel_type.value}]->(:{end.value})")
     lines.append("")
-    lines.append("约束：所有节点按 name 唯一；属性名统一用英文（name/description/...）。")
+    lines.append("约束：除 :Precaution 按 content 唯一外，其余节点按 name 唯一；属性名统一用英文（name/content/description/...）。")
     return "\n".join(lines)

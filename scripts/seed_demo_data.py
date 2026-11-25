@@ -20,7 +20,9 @@ from config.paths import (
     KG_RELATIONS_FILE,
     PROCESSED_DISEASES_JSON,
 )
+from src.common.provenance import SourceProvenance, merge_provenance_records
 from src.common.utils import write_json
+from src.knowledge_graph.schema import NodeType, RelationType
 
 # ---------------------------------------------------------------------------
 # 40 种常见疾病的策划知识（症状/科室/药物/检查/身体部位/预防/饮食），够撑起
@@ -476,13 +478,23 @@ def build_seed() -> None:
     entities: list[dict] = []
     relations: list[dict] = []
 
-    def add_entity(etype: str, name: str = "", **props) -> None:
-        entity = {"type": etype, "name": name, **props}
-        if entity not in entities:
-            entities.append(entity)
+    def add_entity(etype: str, name: str = "", provenance=None, **props) -> None:
+        entity = {"type": etype, **props}
+        if etype != NodeType.PRECAUTION.value:
+            entity["name"] = name
+        if provenance is not None:
+            entity["provenance"] = merge_provenance_records(provenance)
+        entities.append(entity)
+
+    def add_relation(rtype: str, data: dict, provenance=None) -> None:
+        rel: dict = {"type": rtype, "data": data}
+        if provenance is not None:
+            rel["provenance"] = merge_provenance_records(provenance)
+        relations.append(rel)
 
     for name, info in SEED.items():
         display_name = name.replace("_", "")
+        seed_prov = SourceProvenance.create_for_seed(display_name).to_dict()
         diseases.append({
             "name": display_name,
             "description": info["description"],
@@ -491,88 +503,118 @@ def build_seed() -> None:
             "department": info["department"],
             "medications": info["medications"],
             "precautions": "；".join(info["precautions"]),
-            "url": "",
+            "url": seed_prov["source_url"],
+            "provenance": seed_prov,
         })
-        add_entity("Disease", display_name, description=info["description"], icd_code=None)
+        add_entity(
+            NodeType.DISEASE.value, display_name, provenance=seed_prov,
+            description=info["description"], icd_code=None,
+        )
 
         for symptom in info["symptoms"]:
-            add_entity("Symptom", symptom, severity="")
-            relations.append({
-                "type": "HAS_SYMPTOM",
-                "data": {"disease_name": display_name, "symptom_name": symptom},
-            })
+            add_entity(NodeType.SYMPTOM.value, symptom, provenance=seed_prov, severity="")
+            add_relation(
+                RelationType.HAS_SYMPTOM.value,
+                {"disease_name": display_name, "symptom_name": symptom},
+                provenance=seed_prov,
+            )
             # R6 单向关系：症状→疾病不建 MAY_INDICATE 反向边，反查用 Cypher 反向遍历
-        add_entity("Department", info["department"], floor="")
-        relations.append({
-            "type": "BELONGS_TO_DEPARTMENT",
-            "data": {"disease_name": display_name, "department_name": info["department"]},
-        })
+        add_entity(NodeType.DEPARTMENT.value, info["department"], provenance=seed_prov, floor="")
+        add_relation(
+            RelationType.BELONGS_TO_DEPARTMENT.value,
+            {"disease_name": display_name, "department_name": info["department"]},
+            provenance=seed_prov,
+        )
         for med in info["medications"]:
             category = info.get("category", {}).get(med, "")
-            add_entity("Medication", med, category=category, side_effects=[], contraindications=[])
-            relations.append({
-                "type": "TREATED_BY_MEDICATION",
-                "data": {"disease_name": display_name, "drug_name": med},
-            })
+            add_entity(
+                NodeType.MEDICATION.value, med, provenance=seed_prov,
+                category=category, side_effects=[], contraindications=[],
+            )
+            add_relation(
+                RelationType.TREATED_BY_MEDICATION.value,
+                {"disease_name": display_name, "drug_name": med},
+                provenance=seed_prov,
+            )
         for exam in info["examinations"]:
-            add_entity("Examination", exam)
-            relations.append({
-                "type": "NEEDS_EXAMINATION",
-                "data": {"disease_name": display_name, "examination_name": exam},
-            })
+            add_entity(NodeType.EXAMINATION.value, exam, provenance=seed_prov)
+            add_relation(
+                RelationType.NEEDS_EXAMINATION.value,
+                {"disease_name": display_name, "examination_name": exam},
+                provenance=seed_prov,
+            )
         for part in info["body_parts"]:
-            add_entity("BodyPart", part)
-            relations.append({
-                "type": "AFFECTS_BODY_PART",
-                "data": {"disease_name": display_name, "body_part_name": part},
-            })
+            add_entity(NodeType.BODY_PART.value, part, provenance=seed_prov)
+            add_relation(
+                RelationType.AFFECTS_BODY_PART.value,
+                {"disease_name": display_name, "body_part_name": part},
+                provenance=seed_prov,
+            )
         for precaution in info["precautions"]:
             if precaution:
-                add_entity("Precaution", content=precaution)
-                relations.append({
-                    "type": "HAS_PRECAUTION",
-                    "data": {"disease_name": display_name, "precaution_content": precaution},
-                })
+                add_entity(NodeType.PRECAUTION.value, provenance=seed_prov, content=precaution)
+                add_relation(
+                    RelationType.HAS_PRECAUTION.value,
+                    {"disease_name": display_name, "precaution_content": precaution},
+                    provenance=seed_prov,
+                )
         for food in info.get("foods", []):
-            add_entity("Food", food)
-            relations.append({
-                "type": "RECOMMENDS_FOOD",
-                "data": {"disease_name": display_name, "food_name": food, "recommendation_type": "推荐"},
-            })
+            add_entity(NodeType.FOOD.value, food, provenance=seed_prov)
+            add_relation(
+                RelationType.RECOMMENDS_FOOD.value,
+                {"disease_name": display_name, "food_name": food},
+                provenance=seed_prov,
+            )
         for food in info.get("avoid_foods", []):
-            add_entity("Food", food)
-            relations.append({
-                "type": "RECOMMENDS_FOOD",
-                "data": {"disease_name": display_name, "food_name": food, "recommendation_type": "禁忌"},
-            })
+            add_entity(NodeType.FOOD.value, food, provenance=seed_prov)
+            add_relation(
+                RelationType.AVOIDS_FOOD.value,
+                {"disease_name": display_name, "food_name": food},
+                provenance=seed_prov,
+            )
+
+    # 先补齐相互作用涉及的药物实体，再建 INTERACTS_WITH 边（避免华法林缺失导致丢边与孤立节点）
+    med_seed_prov = SourceProvenance.create_for_seed("medication_safety_pairs").to_dict()
+    add_entity(
+        NodeType.MEDICATION.value, "华法林", provenance=med_seed_prov,
+        category="抗凝药", side_effects=[], contraindications=[],
+    )
 
     # 药物相互作用（策划常识对：阿司匹林-华法林等经典组合只放演示用安全对）
     interactions = [("阿司匹林", "华法林"), ("阿司匹林", "布洛芬")]
+    existing_names = {e.get("name") for e in entities if e.get("name")}
     for a, b in interactions:
-        if any(e["name"] == a for e in entities) and any(e["name"] == b for e in entities):
-            relations.append({
-                "type": "INTERACTS_WITH",
-                "data": {"drug_name": a, "interacting_drug_name": b},
-            })
-    add_entity("Medication", "华法林", category="抗凝药", side_effects=[], contraindications=[])
+        if a in existing_names and b in existing_names:
+            add_relation(
+                RelationType.INTERACTS_WITH.value,
+                {"drug_name": a, "interacting_drug_name": b},
+                provenance=med_seed_prov,
+            )
 
     # 副作用关系（经典常识）
     side_effects = [("阿司匹林", "胃部不适"), ("布洛芬", "胃部不适"), ("氨氯地平", "踝部水肿")]
     for drug, se in side_effects:
-        add_entity("Symptom", se, severity="轻度")
-        relations.append({
-            "type": "HAS_SIDE_EFFECT",
-            "data": {"drug_name": drug, "symptom_name": se},
-        })
+        add_entity(NodeType.SYMPTOM.value, se, provenance=med_seed_prov, severity="轻度")
+        add_relation(
+            RelationType.HAS_SIDE_EFFECT.value,
+            {"drug_name": drug, "symptom_name": se},
+            provenance=med_seed_prov,
+        )
 
-    # 去重实体
-    unique: list[dict] = []
-    seen: set = set()
+    # 去重实体并合并来源记录与非空属性
+    merged: dict[tuple[str, str], dict] = {}
     for entity in entities:
         key = (entity["type"], entity.get("name") or entity.get("content", ""))
-        if key not in seen:
-            seen.add(key)
-            unique.append(entity)
+        if key in merged:
+            merged[key]["provenance"] = merge_provenance_records(
+                merged[key].get("provenance"), entity.get("provenance")
+            )
+            for k, v in entity.items():
+                if k != "provenance" and v and not merged[key].get(k):
+                    merged[key][k] = v
+        else:
+            merged[key] = dict(entity)
+    unique = list(merged.values())
 
     write_json(PROCESSED_DISEASES_JSON, {"diseases": diseases})
     write_json(KG_ENTITIES_FILE, {"entities": unique})

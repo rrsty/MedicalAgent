@@ -88,14 +88,19 @@ class KnowledgeGraphBuilder:
                         props["name"] = entity.get("name")
                         if not props["name"]:
                             continue
-                        # Medication 增强 pass 补属性也要生效：ON MATCH 用 coalesce（增强 pass 兼容）
-                        set_clause = ", ".join(
-                            f"n.{key} = coalesce(n.{key}, ${key})" for key in props if key != "name"
+                        # 兼容空串/空列表增强补齐：ON CREATE 直接赋值，ON MATCH 仅在旧值为空时覆盖
+                        create_set = ", ".join(
+                            f"n.{key} = ${key}" for key in props if key != "name"
+                        )
+                        match_set = ", ".join(
+                            f"n.{key} = CASE WHEN n.{key} IS NULL OR n.{key} = '' OR n.{key} = [] "
+                            f"THEN ${key} ELSE n.{key} END"
+                            for key in props if key != "name"
                         )
                         tx.run(
                             f"MERGE (n:{node_type} {{name: $name}}) "
-                            + (f"ON CREATE SET {set_clause} " if set_clause else "")
-                            + (f"ON MATCH SET {set_clause} " if set_clause else "")
+                            + (f"ON CREATE SET {create_set} " if create_set else "")
+                            + (f"ON MATCH SET {match_set} " if match_set else "")
                             + _MERGE_PROVENANCE + "RETURN n.name",
                             provenance_records=_source_records(entity),
                             **props,
@@ -115,6 +120,12 @@ class KnowledgeGraphBuilder:
                     for rel in batch:
                         rel_type = rel.get("type")
                         data = rel.get("data", {})
+                        # 兼容旧版数据：禁忌食物不可写成 RECOMMENDS_FOOD，自动归一为 AVOIDS_FOOD
+                        if (
+                            rel_type == RelationType.RECOMMENDS_FOOD.value
+                            and data.get("recommendation_type") == "禁忌"
+                        ):
+                            rel_type = RelationType.AVOIDS_FOOD.value
                         if rel_type not in RELATION_ENDPOINTS:
                             skipped += 1
                             continue
@@ -125,10 +136,12 @@ class KnowledgeGraphBuilder:
                             skipped += 1
                             continue
                         start_type, end_type = RELATION_ENDPOINTS[rel_type]
+                        start_prop = "content" if start_type == NodeType.PRECAUTION else "name"
+                        end_prop = "content" if end_type == NodeType.PRECAUTION else "name"
                         n = tx.run(
                             f"""
-                            MATCH (a:{start_type.value} {{name: $start_name}})
-                            MATCH (b:{end_type.value} {{name: $end_name}})
+                            MATCH (a:{start_type.value} {{{start_prop}: $start_name}})
+                            MATCH (b:{end_type.value} {{{end_prop}: $end_name}})
                             MERGE (a)-[n:{rel_type}]->(b)
                             {_MERGE_PROVENANCE}
                             RETURN 1
@@ -145,8 +158,8 @@ class KnowledgeGraphBuilder:
                         if reverse_type:
                             tx.run(
                                 f"""
-                                MATCH (a:{start_type.value} {{name: $start_name}})
-                                MATCH (b:{end_type.value} {{name: $end_name}})
+                                MATCH (a:{start_type.value} {{{start_prop}: $start_name}})
+                                MATCH (b:{end_type.value} {{{end_prop}: $end_name}})
                                 MERGE (b)-[n:{reverse_type.value}]->(a)
                                 {_MERGE_PROVENANCE}
                                 """,
