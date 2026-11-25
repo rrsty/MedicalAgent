@@ -52,18 +52,25 @@ def _generate_cypher(question: str) -> str:
     return text.strip()
 
 
+def _strip_string_literals(cypher: str) -> str:
+    return re.sub(r"'(?:\\.|''|[^'\\])*'|\"(?:\\.|\"\"|[^\"\\])*\"", "''", cypher)
+
+
 def _validate_readonly(cypher: str) -> str | None:
-    """② 写关键字拒绝；返回拒绝原因或 None。"""
-    match = _WRITE_PATTERN.search(cypher)
+    """② 写关键字拒绝（剥离字符串字面量后匹配，避免误杀值中的普通英文词）。"""
+    match = _WRITE_PATTERN.search(_strip_string_literals(cypher))
     if match:
         return f"检测到写关键字「{match.group(1)}」，已拒绝执行"
 
 
-def _ensure_limit(cypher: str) -> str:
-    """④ 无 LIMIT 自动追加。"""
-    if re.search(r"\bLIMIT\s+\d+\b", cypher, re.IGNORECASE):
-        return cypher
-    return f"{cypher}\nLIMIT {MAX_ROWS}"
+def _ensure_limit(cypher: str, max_rows: int = MAX_ROWS) -> str:
+    """④ 确保末尾存在且不超过 max_rows 的 LIMIT（防全表扫描与超大 LIMIT）。"""
+    m = re.search(r"\bLIMIT\s+(\d+)\s*$", cypher, re.IGNORECASE)
+    if m:
+        if int(m.group(1)) <= max_rows:
+            return cypher
+        return cypher[:m.start()] + f"LIMIT {max_rows}"
+    return f"{cypher}\nLIMIT {max_rows}"
 
 
 def _validate_hop_budget(cypher: str) -> str | None:
@@ -72,9 +79,12 @@ def _validate_hop_budget(cypher: str) -> str | None:
     Reject procedures, subqueries and path functions rather than claiming this
     small validator is a general Cypher parser. Complex queries use template tools.
     """
-    code = re.sub(r"'(?:\\.|''|[^'\\])*'|\"(?:\\.|\"\"|[^\"\\])*\"", "''", cypher)
-    if re.search(r"//|/\*|;|`|\b(CALL|UNION|EXISTS|shortestPath|allShortestPaths|REPEATABLE)\b",
-                 code, re.IGNORECASE):
+    code = _strip_string_literals(cypher)
+    if re.search(
+        r"//|/\*|;|`|\b(?:CALL|UNION|EXISTS|shortestPath|allShortestPaths|REPEATABLE)\b|\b(?:COUNT|COLLECT)\s*\{",
+        code,
+        re.IGNORECASE,
+    ):
         return "查询超出受控路径语法范围，请使用预定义查询工具"
     edge_pattern = re.compile(r"(?:<-|-)\s*(?:\[([^\]]*)\])?\s*(?:->|-)")
     total_hops = 0
@@ -109,11 +119,11 @@ def run_readonly_cypher(cypher: str, max_rows: int = MAX_ROWS) -> dict:
             logger.warning("[Text2Cypher 审计] 拒绝: %s | %s", rejected, cypher[:200])
             return {"success": False, "error": rejected, "rows": []}
 
-        cypher = _ensure_limit(cypher)  # ④
+        cypher = _ensure_limit(cypher, max_rows=max_rows)  # ④
 
         driver = get_driver()
         with driver.session(default_access_mode=READ_ACCESS) as session:  # ① 只读事务
-            session.run(f"EXPLAIN {cypher}")  # ③ EXPLAIN 校验语法
+            session.run(f"EXPLAIN {cypher}").consume()  # ③ EXPLAIN 校验语法并释放结果流
 
             result = session.run(cypher)
             keys = list(result.keys())

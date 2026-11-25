@@ -50,7 +50,10 @@ def enrich() -> None:
         for e in entities
         if e.get("type") in ("Medication", "Drug") and e.get("name")
     }
-    todo = [name for name, e in meds.items() if not e.get("category")]
+    todo = [
+        name for name, e in meds.items()
+        if not e.get("category") or not e.get("side_effects") or not e.get("contraindications")
+    ]
     print(f"药物总数 {len(meds)}，待增强 {len(todo)}")
 
     if not todo:
@@ -68,20 +71,24 @@ def enrich() -> None:
                 (
                     "system",
                     "你是药学专家。给出药物的通用分类、常见副作用、禁忌症。"
-                    "不确定的信息宁可不填，绝不编造（医疗安全红线）。以 JSON 格式输出。",
+                    "不确定的信息宁可不填，绝不编造（医疗安全红线）。"
+                    '严格以 JSON 输出：{"category": "...", "side_effects": [...], "contraindications": [...]}',
                 ),
                 ("human", name),
             ])
             entity = meds[name]
-            entity["category"] = profile.category or ""
-            entity["side_effects"] = [
-                s for s in profile.side_effects
-                if s and s not in MedicationProfile.PLACEHOLDERS
-            ]
-            entity["contraindications"] = [
-                s for s in profile.contraindications
-                if s and s not in MedicationProfile.PLACEHOLDERS
-            ]
+            if not entity.get("category") and profile.category:
+                entity["category"] = profile.category
+            if not entity.get("side_effects"):
+                entity["side_effects"] = [
+                    s for s in profile.side_effects
+                    if s and s not in MedicationProfile.PLACEHOLDERS
+                ]
+            if not entity.get("contraindications"):
+                entity["contraindications"] = [
+                    s for s in profile.contraindications
+                    if s and s not in MedicationProfile.PLACEHOLDERS
+                ]
             filled += 1
         except Exception as exc:  # noqa: BLE001
             logger.warning("增强失败 %s: %s", name, exc)
@@ -91,24 +98,23 @@ def enrich() -> None:
 
     # 尽力 MERGE 更新 Neo4j（不可达只警告）
     try:
-        from src.knowledge_graph.graph_queries import GraphQueries
         from src.knowledge_graph.schema_manager import get_driver, verify_connectivity
 
         if verify_connectivity():
             with get_driver().session() as session:
                 for name, entity in meds.items():
-                    if not entity.get("category"):
+                    if not (entity.get("category") or entity.get("side_effects") or entity.get("contraindications")):
                         continue
                     side_effects = entity.get("side_effects") or []
                     cons = entity.get("contraindications") or []
                     session.run(
                         """
                         MATCH (m:Medication {name: $name})
-                        SET m.category = $category,
-                            m.side_effects = coalesce(m.side_effects, $side_effects),
-                            m.contraindications = coalesce(m.contraindications, $cons)
+                        SET m.category = CASE WHEN m.category IS NULL OR m.category = '' THEN $category ELSE m.category END,
+                            m.side_effects = CASE WHEN m.side_effects IS NULL OR m.side_effects = [] THEN $side_effects ELSE m.side_effects END,
+                            m.contraindications = CASE WHEN m.contraindications IS NULL OR m.contraindications = [] THEN $cons ELSE m.contraindications END
                         """,
-                        name=name, category=entity["category"],
+                        name=name, category=entity.get("category") or "",
                         side_effects=side_effects if isinstance(side_effects, list) else [side_effects],
                         cons=cons if isinstance(cons, list) else [cons],
                     )

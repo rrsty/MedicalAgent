@@ -29,8 +29,13 @@ logger = setup_logger("scripts.build_index", "vector.log")
 # R4 索引契约：BGE-M3 / 1024 维 / IndexIVFFlat / METRIC_INNER_PRODUCT / 归一化
 
 
+def entity_label(entity: dict) -> str:
+    """Precaution 使用 content 作为主标识，其余节点使用 name。"""
+    return str(entity.get("name") or entity.get("content") or "").strip()
+
+
 def entity_text(entity: dict) -> str:
-    return f"{entity.get('name', '')}（{entity.get('type', '')}）"
+    return f"{entity_label(entity)}（{entity.get('type', '')}）"
 
 
 def main() -> None:
@@ -45,12 +50,13 @@ def main() -> None:
     print(f"[1/4] 加载 BGE-M3: {model_path}")
     model = SentenceTransformer(model_path)
 
-    # 2. 读取实体
-    entities = read_json(KG_ENTITIES_FILE).get("entities", [])
+    # 2. 读取实体（过滤空标识，防止 Precaution 等节点产出重复的空名垃圾向量）
+    raw_entities = read_json(KG_ENTITIES_FILE).get("entities", [])
+    entities = [e for e in raw_entities if entity_label(e)]
     if not entities:
         print("❌ 实体数据为空，请先运行抽取与（可选）建图")
         sys.exit(1)
-    print(f"[2/4] 读取实体 {len(entities)} 条，开始编码...")
+    print(f"[2/4] 读取有效实体 {len(entities)} 条（原始 {len(raw_entities)} 条），开始编码...")
 
     texts = [entity_text(e) for e in entities]
     vectors = np.asarray(
@@ -86,7 +92,7 @@ def main() -> None:
         {
             "entities": [
                 {
-                    "name": e.get("name", ""),
+                    "name": entity_label(e),
                     "type": e.get("type", ""),
                     "description": e.get("description", ""),
                     "provenance": e.get("provenance", []),

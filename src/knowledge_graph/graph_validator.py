@@ -14,8 +14,6 @@ from src.knowledge_graph.schema_manager import close_driver, verify_connectivity
 
 logger = setup_logger("kg.validator", "neo4j.log")
 
-EMERGENCY_KEYWORDS = ["胸痛", "呼吸困难", "意识模糊"]
-
 
 def validate() -> bool:
     results: list[tuple[str, bool, str]] = []
@@ -68,7 +66,7 @@ def validate() -> bool:
             ).single()
         total_diseases = record["diseases"]
         complete = record["complete"]
-        ok = total_diseases == 0 or complete / total_diseases >= 0.8
+        ok = total_diseases > 0 and complete / total_diseases >= 0.8
         check(
             "疾病完整性 ≥ 80%",
             ok,

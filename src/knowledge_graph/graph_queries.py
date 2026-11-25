@@ -16,30 +16,30 @@ class GraphQueries:
 
     # ---------- 疾病 ----------
     def get_disease_info(self, name: str) -> dict:
-        """疾病摘要：症状 / 科室 / 药物 / 检查 / 身体部位。"""
+        """疾病摘要：症状 / 科室 / 药物 / 检查 / 身体部位（模式推导，避免 5 连 OPTIONAL MATCH 笛卡尔积）。"""
         try:
             with get_driver().session() as session:
                 record = session.run(
                     """
                     MATCH (d:Disease {name: $name})
-                    OPTIONAL MATCH (d)-[:HAS_SYMPTOM]->(s:Symptom)
-                    OPTIONAL MATCH (d)-[:BELONGS_TO_DEPARTMENT]->(dep:Department)
-                    OPTIONAL MATCH (d)-[:TREATED_BY_MEDICATION]->(m:Medication)
-                    OPTIONAL MATCH (d)-[:NEEDS_EXAMINATION]->(e:Examination)
-                    OPTIONAL MATCH (d)-[:AFFECTS_BODY_PART]->(b:BodyPart)
-                    RETURN d.name AS name, d.description AS description,
-                           collect(DISTINCT s.name) AS symptoms,
-                           collect(DISTINCT dep.name) AS departments,
-                           collect(DISTINCT m.name) AS medications,
-                           collect(DISTINCT e.name) AS examinations,
-                           collect(DISTINCT b.name) AS body_parts
+                    RETURN d.name AS name,
+                           d.description AS description,
+                           [(d)-[:HAS_SYMPTOM]->(s:Symptom) | s.name] AS symptoms,
+                           [(d)-[:BELONGS_TO_DEPARTMENT]->(dep:Department) | dep.name] AS departments,
+                           [(d)-[:TREATED_BY_MEDICATION]->(m:Medication) | m.name] AS medications,
+                           [(d)-[:NEEDS_EXAMINATION]->(e:Examination) | e.name] AS examinations,
+                           [(d)-[:AFFECTS_BODY_PART]->(b:BodyPart) | b.name] AS body_parts
                     """,
                     name=name,
                 ).single()
                 if record is None:
                     return {}
                 return {
-                    key: (record[key] or [] if isinstance(record[key], list) else record[key])
+                    key: (
+                        list(dict.fromkeys(x for x in (record[key] or []) if x))
+                        if isinstance(record[key], list)
+                        else record[key]
+                    )
                     for key in (
                         "name", "description", "symptoms", "departments",
                         "medications", "examinations", "body_parts",
@@ -223,7 +223,7 @@ class GraphQueries:
 
     # ---------- 实体查找 ----------
     def find_entity(self, keyword: str) -> dict | None:
-        """按名称精确/前缀查找实体（图谱检索的精确匹配路）。"""
+        """按名称精确/前缀查找实体（精确匹配优先于前缀匹配）。"""
         try:
             with get_driver().session() as session:
                 record = session.run(
@@ -232,6 +232,7 @@ class GraphQueries:
                     WHERE n.name = $kw OR n.name STARTS WITH $kw
                     RETURN labels(n)[0] AS type, n.name AS name,
                            coalesce(n.description, '') AS description
+                    ORDER BY CASE WHEN n.name = $kw THEN 0 ELSE 1 END, size(n.name) ASC
                     LIMIT 1
                     """,
                     kw=keyword,
@@ -247,16 +248,17 @@ class GraphQueries:
             logger.error("find_entity(%s) 失败: %s", keyword, exc)
             return None
 
-    def expand_entity(self, name: str) -> dict:
+    def expand_entity(self, name: str, entity_type: str | None = None) -> dict:
         """按实体类型扩展结构化事实（强制检索 Step 1 的图谱路）。
 
-        Disease → 症状/科室/药物；Symptom → 疾病/科室；Medication → 详情。
+        Disease → 症状/科室/药物/检查/禁忌食物；Symptom → 疾病；Medication → 详情。
         """
         try:
             with get_driver().session() as session:
                 record = session.run(
                     """
                     MATCH (n {name: $name})
+                    WHERE $entity_type IS NULL OR $entity_type IN labels(n)
                     WITH n, labels(n)[0] AS t
                     RETURN t AS type,
                     CASE t
@@ -265,7 +267,10 @@ class GraphQueries:
                         departments: [(n)-[:BELONGS_TO_DEPARTMENT]->(dep:Department) | dep.name],
                         medications: [(n)-[:TREATED_BY_MEDICATION]->(m:Medication) | m.name],
                         examinations: [(n)-[:NEEDS_EXAMINATION]->(e:Examination) | e.name],
-                        body_parts: [(n)-[:AFFECTS_BODY_PART]->(b:BodyPart) | b.name]
+                        body_parts: [(n)-[:AFFECTS_BODY_PART]->(b:BodyPart) | b.name],
+                        precautions: [(n)-[:HAS_PRECAUTION]->(p:Precaution) | p.content],
+                        recommended_foods: [(n)-[:RECOMMENDS_FOOD]->(f:Food) | f.name],
+                        avoid_foods: [(n)-[:AVOIDS_FOOD]->(af:Food) | af.name]
                       }
                       WHEN 'Symptom' THEN {
                         diseases: [(n)<-[:HAS_SYMPTOM]-(d:Disease) | d.name]
@@ -273,12 +278,15 @@ class GraphQueries:
                       WHEN 'Medication' THEN {
                         category: n.category, side_effects: n.side_effects,
                         contraindications: n.contraindications,
-                        treats: [(n)-[:TREATS_DISEASE]->(d:Disease) | d.name]
+                        treats: [(n)-[:TREATS_DISEASE]->(d:Disease) | d.name],
+                        interactions: [(n)-[:INTERACTS_WITH]-(other:Medication) | other.name]
                       }
                       ELSE {}
                     END AS facts
+                    LIMIT 1
                     """,
                     name=name,
+                    entity_type=entity_type,
                 ).single()
                 if record is None:
                     return {}
@@ -298,7 +306,7 @@ class GraphQueries:
         entire frontier at each depth; explicit arguments cannot raise config caps.
         """
         def bounded(value, cap):
-            if value is not None and (not isinstance(value, int) or value < 1):
+            if value is not None and (isinstance(value, bool) or not isinstance(value, int) or value < 1):
                 raise ValueError("graph traversal limits must be positive integers")
             return min(value if value is not None else cap, cap)
 
@@ -326,10 +334,11 @@ class GraphQueries:
                     records = session.run(
                         """
                         MATCH (mid)-[r]-(target)
-                        WHERE (($first AND mid.name = $name
+                        WHERE (($first AND coalesce(mid.name, mid.content) = $name
                                 AND ($entity_type IS NULL OR $entity_type IN labels(mid)))
                             OR (NOT $first AND elementId(mid) IN $frontier))
                           AND NOT elementId(target) IN $visited
+                          AND NOT type(r) IN ['TREATS_DISEASE', 'HANDLES_DISEASE']
                         WITH mid, r, target, startNode(r) AS src, endNode(r) AS tgt
                         RETURN elementId(mid) AS mid_id,
                                elementId(target) AS target_id,
@@ -339,9 +348,9 @@ class GraphQueries:
                                coalesce(src.name, src.content) AS src_name,
                                type(r) AS rel, labels(tgt)[0] AS tgt_type,
                                coalesce(tgt.name, tgt.content) AS tgt_name,
-                               coalesce(r.provenance_records, r.provenance_json) AS provenance_json,
-                               coalesce(src.provenance_records, src.provenance_json) AS source_provenance_json,
-                               coalesce(tgt.provenance_records, tgt.provenance_json) AS target_provenance_json
+                               coalesce(r.provenance_records, properties(r)['provenance_json']) AS provenance_json,
+                               coalesce(src.provenance_records, properties(src)['provenance_json']) AS source_provenance_json,
+                               coalesce(tgt.provenance_records, properties(tgt)['provenance_json']) AS target_provenance_json
                         ORDER BY src_type, src_name, rel, tgt_type, tgt_name, edge_id
                         LIMIT $limit
                         """,
